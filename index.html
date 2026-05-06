@@ -1,0 +1,1473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI O2C Collection Intelligence</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --primary: #1a56db;
+      --primary-dark: #1e40af;
+      --accent: #0ea5e9;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --surface: #f8fafc;
+      --card: #ffffff;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --muted: #64748b;
+      --sidebar-w: 240px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--surface);
+      color: var(--text);
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: var(--sidebar-w);
+      background: #0f172a;
+      color: #cbd5e1;
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .sidebar-brand {
+      padding: 20px 18px 16px;
+      border-bottom: 1px solid #1e293b;
+    }
+
+    .sidebar-brand .logo {
+      font-size: 13px;
+      font-weight: 700;
+      color: #f1f5f9;
+      letter-spacing: .5px;
+    }
+
+    .sidebar-brand .sub {
+      font-size: 11px;
+      color: #64748b;
+      margin-top: 2px;
+    }
+
+    .sidebar-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      color: #475569;
+      padding: 18px 18px 6px;
+      text-transform: uppercase;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 18px;
+      cursor: pointer;
+      font-size: 13px;
+      border-left: 3px solid transparent;
+      transition: background .15s, color .15s;
+    }
+
+    .nav-item:hover { background: #1e293b; color: #f1f5f9; }
+
+    .nav-item.active {
+      background: #1e3a5f;
+      border-left-color: var(--accent);
+      color: #e0f2fe;
+    }
+
+    .nav-item .icon { font-size: 16px; width: 20px; text-align: center; }
+
+    .sidebar-footer {
+      margin-top: auto;
+      padding: 14px 18px;
+      border-top: 1px solid #1e293b;
+      font-size: 11px;
+      color: #475569;
+    }
+
+    /* ── Main ── */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .topbar {
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .topbar-title { font-size: 15px; font-weight: 600; }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 9px;
+      border-radius: 999px;
+    }
+
+    .badge-blue { background: #dbeafe; color: #1d4ed8; }
+    .badge-green { background: #d1fae5; color: #065f46; }
+    .badge-amber { background: #fef3c7; color: #92400e; }
+    .badge-red { background: #fee2e2; color: #991b1b; }
+
+    .avatar {
+      width: 32px; height: 32px;
+      background: var(--primary);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 12px; font-weight: 700;
+    }
+
+    .content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+    }
+
+    /* ── Pages ── */
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* ── KPI row ── */
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .kpi-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .kpi-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      border-radius: 12px 12px 0 0;
+    }
+
+    .kpi-card.blue::before { background: var(--primary); }
+    .kpi-card.green::before { background: var(--success); }
+    .kpi-card.amber::before { background: var(--warning); }
+    .kpi-card.red::before { background: var(--danger); }
+
+    .kpi-label { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
+    .kpi-value { font-size: 28px; font-weight: 700; margin: 6px 0 4px; }
+    .kpi-delta { font-size: 12px; color: var(--muted); }
+    .kpi-delta .up { color: var(--success); }
+    .kpi-delta .dn { color: var(--danger); }
+    .kpi-icon { position: absolute; right: 18px; top: 18px; font-size: 28px; opacity: .12; }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px 22px;
+      margin-bottom: 20px;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .card-title { font-size: 14px; font-weight: 600; }
+    .card-subtitle { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+    /* ── Table ── */
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+    td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #f8fafc; }
+
+    /* ── Risk bar ── */
+    .risk-bar {
+      height: 6px;
+      background: #e2e8f0;
+      border-radius: 4px;
+      overflow: hidden;
+      width: 80px;
+    }
+
+    .risk-fill { height: 100%; border-radius: 4px; }
+
+    /* ── AI Enquiry ── */
+    .enquiry-layout {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 20px;
+      height: calc(100vh - 130px);
+    }
+
+    .chat-panel {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .chat-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .ai-avatar {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, #1a56db, #0ea5e9);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 16px;
+    }
+
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .msg {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+
+    .msg.user { flex-direction: row-reverse; }
+
+    .msg-bubble {
+      max-width: 75%;
+      padding: 12px 15px;
+      border-radius: 12px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .msg.ai .msg-bubble {
+      background: #f1f5f9;
+      border-bottom-left-radius: 4px;
+    }
+
+    .msg.user .msg-bubble {
+      background: var(--primary);
+      color: #fff;
+      border-bottom-right-radius: 4px;
+    }
+
+    .msg-avatar {
+      width: 28px; height: 28px;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+
+    .msg.ai .msg-avatar { background: linear-gradient(135deg, #1a56db, #0ea5e9); color: #fff; }
+    .msg.user .msg-avatar { background: #e2e8f0; }
+
+    .chat-input-area {
+      padding: 14px 16px;
+      border-top: 1px solid var(--border);
+    }
+
+    .chat-input-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .chat-input {
+      flex: 1;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 13px;
+      outline: none;
+      font-family: inherit;
+      resize: none;
+    }
+
+    .chat-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px #dbeafe; }
+
+    .btn {
+      padding: 9px 18px;
+      border-radius: 8px;
+      border: none;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity .15s;
+    }
+
+    .btn:hover { opacity: .85; }
+
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .btn-sm { padding: 5px 12px; font-size: 12px; }
+
+    .quick-prompts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    .quick-chip {
+      background: #f1f5f9;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 5px 10px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: background .15s;
+    }
+
+    .quick-chip:hover { background: #dbeafe; border-color: #93c5fd; color: var(--primary-dark); }
+
+    .context-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      overflow-y: auto;
+    }
+
+    /* ── Forecast ── */
+    .forecast-controls {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    select, input[type="date"] {
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 7px 12px;
+      font-size: 13px;
+      outline: none;
+      font-family: inherit;
+    }
+
+    select:focus, input:focus { border-color: var(--primary); }
+
+    .insight-box {
+      background: linear-gradient(135deg, #eff6ff, #dbeafe);
+      border: 1px solid #93c5fd;
+      border-radius: 10px;
+      padding: 14px 16px;
+      font-size: 13px;
+      color: #1e40af;
+    }
+
+    .insight-box strong { display: block; margin-bottom: 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; color: #1d4ed8; }
+
+    .insight-box ul { padding-left: 16px; line-height: 1.8; }
+
+    /* ── Aging buckets ── */
+    .aging-buckets {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .bucket {
+      text-align: center;
+      padding: 14px 10px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+
+    .bucket-label { font-size: 11px; color: var(--muted); font-weight: 600; }
+    .bucket-value { font-size: 20px; font-weight: 700; margin: 6px 0 4px; }
+    .bucket-count { font-size: 11px; color: var(--muted); }
+
+    .bucket.current { background: #ecfdf5; border-color: #6ee7b7; }
+    .bucket.d30 { background: #fffbeb; border-color: #fcd34d; }
+    .bucket.d60 { background: #fff7ed; border-color: #fb923c; }
+    .bucket.d90 { background: #fef2f2; border-color: #fca5a5; }
+    .bucket.d90plus { background: #fdf2f8; border-color: #f0abfc; }
+
+    /* ── Score pill ── */
+    .score-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .score-pill.high { background: #d1fae5; color: #065f46; }
+    .score-pill.medium { background: #fef3c7; color: #92400e; }
+    .score-pill.low { background: #fee2e2; color: #991b1b; }
+
+    /* ── Typing indicator ── */
+    .typing {
+      display: flex; gap: 4px; align-items: center; padding: 4px 0;
+    }
+
+    .typing span {
+      width: 6px; height: 6px;
+      background: var(--muted);
+      border-radius: 50%;
+      animation: bounce 1s infinite;
+    }
+
+    .typing span:nth-child(2) { animation-delay: .15s; }
+    .typing span:nth-child(3) { animation-delay: .3s; }
+
+    @keyframes bounce {
+      0%, 80%, 100% { transform: translateY(0); }
+      40% { transform: translateY(-6px); }
+    }
+
+    .progress-bar {
+      height: 8px;
+      background: #e2e8f0;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 6px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width .6s ease;
+    }
+
+    .tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .scrollbar-thin::-webkit-scrollbar { width: 5px; }
+    .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+    .scrollbar-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+
+    canvas { max-height: 260px !important; }
+  </style>
+</head>
+<body>
+
+<!-- ══════════ SIDEBAR ══════════ -->
+<nav class="sidebar">
+  <div class="sidebar-brand">
+    <div class="logo">&#129504; AI O2C Intelligence</div>
+    <div class="sub">Collection Management</div>
+  </div>
+
+  <div class="sidebar-label">Analytics</div>
+  <div class="nav-item active" onclick="navigate('dashboard', this)">
+    <span class="icon">&#128202;</span> Dashboard
+  </div>
+  <div class="nav-item" onclick="navigate('forecast', this)">
+    <span class="icon">&#128200;</span> Cash Forecast
+  </div>
+  <div class="nav-item" onclick="navigate('aging', this)">
+    <span class="icon">&#9201;</span> Aging Analysis
+  </div>
+
+  <div class="sidebar-label">Operations</div>
+  <div class="nav-item" onclick="navigate('customers', this)">
+    <span class="icon">&#128101;</span> Customer Risk
+  </div>
+  <div class="nav-item" onclick="navigate('actions', this)">
+    <span class="icon">&#128204;</span> Action Queue
+  </div>
+
+  <div class="sidebar-label">AI Tools</div>
+  <div class="nav-item" onclick="navigate('enquiry', this)">
+    <span class="icon">&#129302;</span> AI Enquiry
+  </div>
+
+  <div class="sidebar-footer">v1.0 Prototype &bull; May 2026</div>
+</nav>
+
+<!-- ══════════ MAIN ══════════ -->
+<div class="main">
+  <div class="topbar">
+    <span class="topbar-title" id="page-title">Collection Dashboard</span>
+    <div class="topbar-right">
+      <span class="badge badge-green">&#x25CF; Live</span>
+      <span style="font-size:13px;color:var(--muted)">Period: Q2 2026</span>
+      <div class="avatar">AR</div>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ══ DASHBOARD ══ -->
+    <div id="page-dashboard" class="page active">
+      <div class="kpi-row">
+        <div class="kpi-card blue">
+          <div class="kpi-icon">&#128181;</div>
+          <div class="kpi-label">Total AR Outstanding</div>
+          <div class="kpi-value">$24.8M</div>
+          <div class="kpi-delta"><span class="dn">&#9650; 3.2%</span> vs last month</div>
+        </div>
+        <div class="kpi-card green">
+          <div class="kpi-icon">&#9989;</div>
+          <div class="kpi-label">Collected This Month</div>
+          <div class="kpi-value">$9.1M</div>
+          <div class="kpi-delta"><span class="up">&#9650; 11.4%</span> vs target</div>
+        </div>
+        <div class="kpi-card amber">
+          <div class="kpi-icon">&#9200;</div>
+          <div class="kpi-label">Overdue (30+ Days)</div>
+          <div class="kpi-value">$5.6M</div>
+          <div class="kpi-delta"><span class="dn">&#9660; 8.7%</span> vs last month</div>
+        </div>
+        <div class="kpi-card red">
+          <div class="kpi-icon">&#128680;</div>
+          <div class="kpi-label">High Risk Accounts</div>
+          <div class="kpi-value">23</div>
+          <div class="kpi-delta"><span class="dn">&#9650; 4</span> new this week</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Collection vs Target — Monthly Trend</div>
+              <div class="card-subtitle">Actual vs AI-forecast vs target</div>
+            </div>
+            <span class="badge badge-blue">2026</span>
+          </div>
+          <canvas id="chartTrend"></canvas>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">AR Aging Distribution</div>
+              <div class="card-subtitle">Current snapshot by bucket</div>
+            </div>
+          </div>
+          <canvas id="chartAging"></canvas>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Top Overdue Accounts</div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Customer</th>
+                <th>Overdue</th>
+                <th>Days</th>
+                <th>Risk</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Acme Corp</strong></td>
+                <td>$412,000</td>
+                <td><span class="badge badge-red">92 days</span></td>
+                <td><span class="score-pill low">&#9679; High</span></td>
+                <td><button class="btn btn-outline btn-sm">Escalate</button></td>
+              </tr>
+              <tr>
+                <td><strong>Globex LLC</strong></td>
+                <td>$287,500</td>
+                <td><span class="badge badge-amber">61 days</span></td>
+                <td><span class="score-pill medium">&#9679; Medium</span></td>
+                <td><button class="btn btn-outline btn-sm">Send Notice</button></td>
+              </tr>
+              <tr>
+                <td><strong>Initech</strong></td>
+                <td>$198,000</td>
+                <td><span class="badge badge-amber">47 days</span></td>
+                <td><span class="score-pill medium">&#9679; Medium</span></td>
+                <td><button class="btn btn-outline btn-sm">Call</button></td>
+              </tr>
+              <tr>
+                <td><strong>Umbrella Co</strong></td>
+                <td>$153,200</td>
+                <td><span class="badge badge-red">78 days</span></td>
+                <td><span class="score-pill low">&#9679; High</span></td>
+                <td><button class="btn btn-outline btn-sm">Escalate</button></td>
+              </tr>
+              <tr>
+                <td><strong>Stark Industries</strong></td>
+                <td>$98,400</td>
+                <td><span class="badge badge-blue">32 days</span></td>
+                <td><span class="score-pill high">&#9679; Low</span></td>
+                <td><button class="btn btn-outline btn-sm">Reminder</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">AI Collection Insights</div>
+          </div>
+          <div class="insight-box" style="margin-bottom:14px">
+            <strong>&#129504; AI Recommendation</strong>
+            <ul>
+              <li>Prioritize <b>Acme Corp</b> — 92-day balance crosses write-off threshold in 8 days</li>
+              <li>Globex LLC payment history shows 14-day delay pattern — auto-schedule follow-up</li>
+              <li>Expected cash inflow next 7 days: <b>$2.3M</b> (87% confidence)</li>
+              <li>3 customers showing early distress signals — proactive outreach recommended</li>
+            </ul>
+          </div>
+          <canvas id="chartRisk" style="max-height:160px"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ FORECAST ══ -->
+    <div id="page-forecast" class="page">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">AI Cash Collection Forecast</div>
+            <div class="card-subtitle">ML-driven 90-day rolling forecast with confidence intervals</div>
+          </div>
+          <div class="forecast-controls">
+            <select id="forecastHorizon" onchange="updateForecast()">
+              <option value="30">30-Day</option>
+              <option value="60">60-Day</option>
+              <option value="90" selected>90-Day</option>
+            </select>
+            <select id="forecastModel" onchange="updateForecast()">
+              <option value="ml">ML Ensemble</option>
+              <option value="arima">ARIMA</option>
+              <option value="naive">Naive Baseline</option>
+            </select>
+            <button class="btn btn-primary btn-sm" onclick="runForecast()">&#128200; Run Forecast</button>
+          </div>
+        </div>
+        <canvas id="chartForecast" style="max-height:300px"></canvas>
+      </div>
+
+      <div class="grid-3">
+        <div class="card">
+          <div class="card-title" style="margin-bottom:12px">30-Day Outlook</div>
+          <div style="font-size:26px;font-weight:700;color:var(--success)">$8.4M</div>
+          <div style="font-size:12px;color:var(--muted);margin:4px 0 10px">Expected collections</div>
+          <div class="progress-bar"><div class="progress-fill" style="width:84%;background:var(--success)"></div></div>
+          <div style="font-size:11px;color:var(--muted);margin-top:6px">84% of $10M target &bull; 91% confidence</div>
+        </div>
+
+        <div class="card">
+          <div class="card-title" style="margin-bottom:12px">60-Day Outlook</div>
+          <div style="font-size:26px;font-weight:700;color:var(--warning)">$15.9M</div>
+          <div style="font-size:12px;color:var(--muted);margin:4px 0 10px">Expected collections</div>
+          <div class="progress-bar"><div class="progress-fill" style="width:79%;background:var(--warning)"></div></div>
+          <div style="font-size:11px;color:var(--muted);margin-top:6px">79% of $20M target &bull; 83% confidence</div>
+        </div>
+
+        <div class="card">
+          <div class="card-title" style="margin-bottom:12px">90-Day Outlook</div>
+          <div style="font-size:26px;font-weight:700;color:var(--primary)">$22.7M</div>
+          <div style="font-size:12px;color:var(--muted);margin:4px 0 10px">Expected collections</div>
+          <div class="progress-bar"><div class="progress-fill" style="width:75%;background:var(--primary)"></div></div>
+          <div style="font-size:11px;color:var(--muted);margin-top:6px">75% of $30M target &bull; 74% confidence</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Weekly Forecast Breakdown</div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Week</th>
+              <th>Forecast ($)</th>
+              <th>Low Bound</th>
+              <th>High Bound</th>
+              <th>Confidence</th>
+              <th>Key Driver</th>
+            </tr>
+          </thead>
+          <tbody id="forecastTable"></tbody>
+        </table>
+      </div>
+
+      <div class="insight-box">
+        <strong>&#129504; Forecast Intelligence</strong>
+        <ul>
+          <li>Week 3 dip driven by end-of-quarter hold patterns from Manufacturing segment (historically 18% lower)</li>
+          <li>High-value invoices for Stark Industries ($520K) and Wayne Enterprises ($380K) expected Week 2</li>
+          <li>Model accuracy last 90 days: <b>94.2% MAPE</b> — outperforms baseline by 31%</li>
+          <li>Seasonal adjustment applied: May collections trend 7.3% above annual average</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ══ AGING ══ -->
+    <div id="page-aging" class="page">
+      <div class="aging-buckets">
+        <div class="bucket current">
+          <div class="bucket-label">Current</div>
+          <div class="bucket-value" style="color:var(--success)">$11.2M</div>
+          <div class="bucket-count">347 invoices</div>
+        </div>
+        <div class="bucket d30">
+          <div class="bucket-label">1–30 Days</div>
+          <div class="bucket-value" style="color:#d97706">$5.8M</div>
+          <div class="bucket-count">124 invoices</div>
+        </div>
+        <div class="bucket d60">
+          <div class="bucket-label">31–60 Days</div>
+          <div class="bucket-value" style="color:#ea580c">$3.9M</div>
+          <div class="bucket-count">67 invoices</div>
+        </div>
+        <div class="bucket d90">
+          <div class="bucket-label">61–90 Days</div>
+          <div class="bucket-value" style="color:var(--danger)">$2.4M</div>
+          <div class="bucket-count">38 invoices</div>
+        </div>
+        <div class="bucket d90plus">
+          <div class="bucket-label">90+ Days</div>
+          <div class="bucket-value" style="color:#9333ea">$1.5M</div>
+          <div class="bucket-count">19 invoices</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Aging Trend (6 Months)</div>
+          </div>
+          <canvas id="chartAgingTrend"></canvas>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Segment Breakdown</div>
+          </div>
+          <canvas id="chartSegment"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">90+ Day Overdue — Detailed View</div>
+          <button class="btn btn-outline btn-sm">&#8681; Export</button>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Invoice #</th>
+              <th>Customer</th>
+              <th>Invoice Date</th>
+              <th>Due Date</th>
+              <th>Amount</th>
+              <th>Days Overdue</th>
+              <th>AI Risk Score</th>
+              <th>Recommended Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>INV-2025-8841</td>
+              <td><strong>Acme Corp</strong></td>
+              <td>Jan 15, 2026</td>
+              <td>Feb 14, 2026</td>
+              <td>$412,000</td>
+              <td><span class="badge badge-red">92 days</span></td>
+              <td><span class="score-pill low">96 / 100</span></td>
+              <td>&#128680; Escalate to Legal</td>
+            </tr>
+            <tr>
+              <td>INV-2025-8702</td>
+              <td><strong>Umbrella Co</strong></td>
+              <td>Jan 29, 2026</td>
+              <td>Feb 28, 2026</td>
+              <td>$153,200</td>
+              <td><span class="badge badge-red">78 days</span></td>
+              <td><span class="score-pill low">84 / 100</span></td>
+              <td>&#128222; Executive call + payment plan</td>
+            </tr>
+            <tr>
+              <td>INV-2026-0012</td>
+              <td><strong>Soylent Corp</strong></td>
+              <td>Feb 3, 2026</td>
+              <td>Mar 5, 2026</td>
+              <td>$88,500</td>
+              <td><span class="badge badge-red">63 days</span></td>
+              <td><span class="score-pill medium">61 / 100</span></td>
+              <td>&#9993; Formal demand letter</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ══ CUSTOMERS ══ -->
+    <div id="page-customers" class="page">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Customer Risk Scorecard</div>
+            <div class="card-subtitle">AI-computed payment risk based on behaviour, credit history, and macro signals</div>
+          </div>
+          <div class="forecast-controls">
+            <select>
+              <option>All Segments</option>
+              <option>Enterprise</option>
+              <option>Mid-Market</option>
+              <option>SMB</option>
+            </select>
+            <select>
+              <option>All Risk Levels</option>
+              <option>High Risk</option>
+              <option>Medium Risk</option>
+              <option>Low Risk</option>
+            </select>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Customer</th>
+              <th>Segment</th>
+              <th>Outstanding</th>
+              <th>Avg Days Late</th>
+              <th>Payment Rate</th>
+              <th>AI Risk Score</th>
+              <th>Trend</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="customerTable"></tbody>
+        </table>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Risk Distribution</div>
+          </div>
+          <canvas id="chartRiskDist"></canvas>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Payment Behaviour Patterns</div>
+          </div>
+          <canvas id="chartPayBehaviour"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ ACTIONS ══ -->
+    <div id="page-actions" class="page">
+      <div class="kpi-row">
+        <div class="kpi-card blue">
+          <div class="kpi-label">Open Actions</div>
+          <div class="kpi-value">47</div>
+          <div class="kpi-delta">12 due today</div>
+        </div>
+        <div class="kpi-card amber">
+          <div class="kpi-label">Pending Escalations</div>
+          <div class="kpi-value">8</div>
+          <div class="kpi-delta">3 urgent</div>
+        </div>
+        <div class="kpi-card green">
+          <div class="kpi-label">Resolved This Week</div>
+          <div class="kpi-value">31</div>
+          <div class="kpi-delta">$1.8M recovered</div>
+        </div>
+        <div class="kpi-card red">
+          <div class="kpi-label">SLA Breaches</div>
+          <div class="kpi-value">5</div>
+          <div class="kpi-delta">2 critical</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">AI-Generated Action Queue</div>
+          <button class="btn btn-primary btn-sm" onclick="generateActions()">&#129504; Re-prioritize with AI</button>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Priority</th>
+              <th>Customer</th>
+              <th>Action</th>
+              <th>Amount at Risk</th>
+              <th>Due</th>
+              <th>Owner</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="actionTable"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ══ AI ENQUIRY ══ -->
+    <div id="page-enquiry" class="page">
+      <div class="enquiry-layout">
+
+        <!-- Chat -->
+        <div class="chat-panel">
+          <div class="chat-header">
+            <div class="ai-avatar">&#129302;</div>
+            <div>
+              <div style="font-weight:600;font-size:14px">Collection AI Assistant</div>
+              <div style="font-size:11px;color:var(--muted)">Powered by ML &bull; Trained on O2C data</div>
+            </div>
+            <span class="badge badge-green" style="margin-left:auto">Online</span>
+          </div>
+
+          <div class="chat-messages scrollbar-thin" id="chatMessages">
+            <div class="msg ai">
+              <div class="msg-avatar">&#129302;</div>
+              <div class="msg-bubble">
+                Hello! I'm your O2C Collection AI assistant. I can help you with:<br><br>
+                • <b>Collection forecasts</b> and cash flow predictions<br>
+                • <b>Customer payment risk</b> analysis<br>
+                • <b>Invoice status</b> and overdue account queries<br>
+                • <b>Recommended actions</b> for specific accounts<br>
+                • <b>Dispute resolution</b> guidance<br><br>
+                What would you like to explore today?
+              </div>
+            </div>
+          </div>
+
+          <div class="chat-input-area">
+            <div class="quick-prompts">
+              <div class="quick-chip" onclick="sendQuickPrompt(this)">What's my highest risk account?</div>
+              <div class="quick-chip" onclick="sendQuickPrompt(this)">Forecast next 30 days</div>
+              <div class="quick-chip" onclick="sendQuickPrompt(this)">Show Acme Corp status</div>
+              <div class="quick-chip" onclick="sendQuickPrompt(this)">Overdue &gt; 60 days summary</div>
+              <div class="quick-chip" onclick="sendQuickPrompt(this)">Suggest collection actions</div>
+              <div class="quick-chip" onclick="sendQuickPrompt(this)">DSO trend analysis</div>
+            </div>
+            <div class="chat-input-row">
+              <textarea class="chat-input" id="chatInput" rows="2" placeholder="Ask anything about your collections…" onkeydown="handleKey(event)"></textarea>
+              <button class="btn btn-primary" onclick="sendMessage()">Send</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Context Panel -->
+        <div class="context-panel scrollbar-thin">
+          <div class="card" style="margin-bottom:0">
+            <div class="card-title" style="margin-bottom:14px">&#128202; Live Metrics</div>
+            <div style="display:flex;flex-direction:column;gap:10px;font-size:13px">
+              <div style="display:flex;justify-content:space-between">
+                <span style="color:var(--muted)">Total Outstanding</span>
+                <strong>$24.8M</strong>
+              </div>
+              <div style="display:flex;justify-content:space-between">
+                <span style="color:var(--muted)">Collected MTD</span>
+                <strong style="color:var(--success)">$9.1M</strong>
+              </div>
+              <div style="display:flex;justify-content:space-between">
+                <span style="color:var(--muted)">DSO (Days)</span>
+                <strong>42.3</strong>
+              </div>
+              <div style="display:flex;justify-content:space-between">
+                <span style="color:var(--muted)">CEI Score</span>
+                <strong style="color:var(--success)">87.4%</strong>
+              </div>
+              <div style="display:flex;justify-content:space-between">
+                <span style="color:var(--muted)">Bad Debt Reserve</span>
+                <strong style="color:var(--warning)">$1.2M</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" style="margin-bottom:0">
+            <div class="card-title" style="margin-bottom:12px">&#128203; Recent Queries</div>
+            <div style="display:flex;flex-direction:column;gap:8px;font-size:12px;color:var(--muted)">
+              <div>&#128336; Acme Corp payment history</div>
+              <div>&#128336; 90-day cash forecast</div>
+              <div>&#128336; High-risk account list</div>
+              <div>&#128336; Q1 collection performance</div>
+            </div>
+          </div>
+
+          <div class="card" style="margin-bottom:0">
+            <div class="card-title" style="margin-bottom:12px">&#9889; Quick Actions</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <button class="btn btn-outline" style="width:100%;text-align:left;font-size:12px" onclick="navigate('forecast',null)">&#128200; Open Forecast Dashboard</button>
+              <button class="btn btn-outline" style="width:100%;text-align:left;font-size:12px" onclick="navigate('aging',null)">&#9201; View Aging Report</button>
+              <button class="btn btn-outline" style="width:100%;text-align:left;font-size:12px" onclick="navigate('actions',null)">&#128204; Open Action Queue</button>
+              <button class="btn btn-primary" style="width:100%;text-align:left;font-size:12px">&#8681; Export Collection Report</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<script>
+// ── Navigation ──
+const pageTitles = {
+  dashboard: 'Collection Dashboard',
+  forecast: 'Cash Collection Forecast',
+  aging: 'AR Aging Analysis',
+  customers: 'Customer Risk Intelligence',
+  actions: 'AI Action Queue',
+  enquiry: 'AI Collection Enquiry',
+};
+
+function navigate(page, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.getElementById('page-title').textContent = pageTitles[page];
+  if (el) el.classList.add('active');
+  initPageCharts(page);
+}
+
+// ── Data ──
+const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const weeks13 = Array.from({length: 13}, (_, i) => `W${i + 1} (May–Aug)`);
+
+const customers = [
+  { name: 'Acme Corp',        segment: 'Enterprise',  outstanding: '$412K', avgDays: 31, rate: '62%', risk: 96, trend: '&#9650;', riskLabel: 'High' },
+  { name: 'Umbrella Co',      segment: 'Enterprise',  outstanding: '$153K', avgDays: 22, rate: '71%', risk: 84, trend: '&#9650;', riskLabel: 'High' },
+  { name: 'Globex LLC',       segment: 'Mid-Market',  outstanding: '$287K', avgDays: 18, rate: '79%', risk: 67, trend: '&#9660;', riskLabel: 'Medium' },
+  { name: 'Initech',          segment: 'Mid-Market',  outstanding: '$198K', avgDays: 14, rate: '83%', risk: 55, trend: '&#8212;', riskLabel: 'Medium' },
+  { name: 'Stark Industries', segment: 'Enterprise',  outstanding: '$98K',  avgDays: 8,  rate: '94%', risk: 22, trend: '&#9660;', riskLabel: 'Low' },
+  { name: 'Wayne Enterprises',segment: 'Enterprise',  outstanding: '$520K', avgDays: 5,  rate: '97%', risk: 15, trend: '&#9660;', riskLabel: 'Low' },
+  { name: 'Soylent Corp',     segment: 'SMB',         outstanding: '$88K',  avgDays: 25, rate: '68%', risk: 61, trend: '&#9650;', riskLabel: 'Medium' },
+];
+
+const actions = [
+  { priority: '&#128308; Critical', customer: 'Acme Corp',        action: 'Legal escalation notice',     amount: '$412K', due: 'Today',    owner: 'Sarah K.', status: 'Open' },
+  { priority: '&#128308; Critical', customer: 'Umbrella Co',      action: 'Executive outreach call',     amount: '$153K', due: 'Today',    owner: 'Mike T.',  status: 'Open' },
+  { priority: '&#128993; High',     customer: 'Globex LLC',       action: 'Send 2nd payment reminder',   amount: '$287K', due: 'Tomorrow', owner: 'Lisa R.',  status: 'In Progress' },
+  { priority: '&#128993; High',     customer: 'Soylent Corp',     action: 'Formal demand letter',        amount: '$88K',  due: 'May 8',    owner: 'James P.', status: 'Open' },
+  { priority: '&#128994; Medium',   customer: 'Initech',          action: 'Schedule payment plan call',  amount: '$198K', due: 'May 9',    owner: 'Sarah K.', status: 'Open' },
+  { priority: '&#128994; Medium',   customer: 'Stark Industries', action: '1st payment reminder email',  amount: '$98K',  due: 'May 10',   owner: 'Auto',     status: 'Queued' },
+];
+
+const forecastData = [
+  { week: 'Week 1 (May 6–12)',  forecast: 2100, low: 1850, high: 2350, conf: '92%', driver: 'Large enterprise invoices due' },
+  { week: 'Week 2 (May 13–19)', forecast: 2800, low: 2500, high: 3100, conf: '89%', driver: 'Wayne Ent. + Stark payment expected' },
+  { week: 'Week 3 (May 20–26)', forecast: 1600, low: 1300, high: 1900, conf: '84%', driver: 'End-of-period manufacturing hold' },
+  { week: 'Week 4 (May 27–Jun 2)', forecast: 1900, low: 1650, high: 2150, conf: '86%', driver: 'SMB payment cycle' },
+  { week: 'Week 5 (Jun 3–9)',   forecast: 2200, low: 1900, high: 2500, conf: '81%', driver: 'Dispute resolution expected' },
+  { week: 'Week 6 (Jun 10–16)', forecast: 2500, low: 2100, high: 2900, conf: '78%', driver: 'Q2 close incentive payments' },
+];
+
+// ── AI Chat ──
+const aiResponses = {
+  'highest risk': `<b>&#128680; Highest Risk Account: Acme Corp</b><br><br>
+    Risk Score: <b>96/100</b> (Critical)<br>
+    Outstanding: <b>$412,000</b><br>
+    Days Overdue: <b>92 days</b><br>
+    Breach Threshold: <b>8 days remaining</b><br><br>
+    <b>AI Recommendation:</b> Immediate legal escalation. Payment history shows 0 response to 3 prior notices.
+    Credit hold should be activated. Estimated recovery via legal route: <b>68%</b> ($280K) within 45 days.`,
+
+  'forecast': `<b>&#128200; 30-Day Collection Forecast</b><br><br>
+    Expected Collections: <b>$8.4M</b><br>
+    Confidence Interval: $7.6M – $9.2M<br>
+    Model Confidence: <b>91%</b><br><br>
+    <b>Week-by-week:</b><br>
+    • Week 1: $2.1M (enterprise invoices due)<br>
+    • Week 2: $2.8M (Wayne Ent. + Stark payments)<br>
+    • Week 3: $1.6M (manufacturing hold pattern)<br>
+    • Week 4: $1.9M (SMB cycle)<br><br>
+    <b>Risk to forecast:</b> Acme Corp ($412K) at escalation stage — excluded from base forecast.`,
+
+  'acme corp': `<b>&#128101; Acme Corp — Account Summary</b><br><br>
+    Credit Limit: $600,000 &bull; Utilization: <b>68.7%</b><br>
+    Total Outstanding: <b>$412,000</b><br>
+    Oldest Invoice: <b>INV-2025-8841</b> ($412K, 92 days)<br>
+    Payment History: 3 late payments in last 12 months<br>
+    Risk Score: <b>96/100 — Critical</b><br><br>
+    <b>Contact:</b> John Smith (CFO) &bull; 3 unanswered calls<br>
+    <b>Last Payment:</b> $88K on Feb 2, 2026<br><br>
+    <b>AI Recommendation:</b> Escalate to legal. Activate credit hold. Consider payment plan offer with 20% immediate deposit.`,
+
+  'overdue 60': `<b>&#9201; Accounts 60+ Days Overdue</b><br><br>
+    Total: <b>$3.9M</b> across <b>57 invoices</b><br><br>
+    Top accounts:<br>
+    • Acme Corp — $412K (92 days)<br>
+    • Umbrella Co — $153K (78 days)<br>
+    • Soylent Corp — $88K (63 days)<br>
+    • 54 others — $3.25M<br><br>
+    <b>AI Action Plan:</b> Send automated demand letters to 42 accounts (&lt;$50K). Personal outreach for 15 accounts (&gt;$50K).
+    Projected recovery: <b>$2.8M (72%)</b> within 45 days with recommended actions.`,
+
+  'collection actions': `<b>&#128204; Top 5 AI-Recommended Actions</b><br><br>
+    1. &#128308; <b>Acme Corp</b> — Escalate to legal today (92 days, $412K)<br>
+    2. &#128308; <b>Umbrella Co</b> — Executive call + payment plan (78 days, $153K)<br>
+    3. &#128993; <b>Globex LLC</b> — 2nd reminder + credit review (61 days, $287K)<br>
+    4. &#128993; <b>Soylent Corp</b> — Formal demand letter (63 days, $88K)<br>
+    5. &#128994; <b>Initech</b> — Schedule payment arrangement call ($198K)<br><br>
+    <b>Estimated impact:</b> These 5 actions could recover <b>$680K within 30 days</b>.`,
+
+  'dso': `<b>&#128200; DSO Trend Analysis</b><br><br>
+    Current DSO: <b>42.3 days</b><br>
+    Target DSO: <b>38 days</b><br>
+    Industry Benchmark: 44.1 days<br><br>
+    <b>Trend (Last 6 Months):</b><br>
+    Dec: 48.2 → Jan: 46.1 → Feb: 44.8 → Mar: 43.9 → Apr: 43.2 → May: <b>42.3</b><br><br>
+    <b>AI Insight:</b> DSO improving at 1.2 days/month — at this rate target of 38 days achieved by <b>September 2026</b>.
+    Key driver: improved early-payment discount program (+23% uptake). Recommend expanding to SMB segment.`,
+};
+
+function getAIResponse(q) {
+  q = q.toLowerCase();
+  if (q.includes('risk') || q.includes('highest')) return aiResponses['highest risk'];
+  if (q.includes('forecast') || q.includes('30') || q.includes('predict')) return aiResponses['forecast'];
+  if (q.includes('acme')) return aiResponses['acme corp'];
+  if (q.includes('60') || q.includes('overdue')) return aiResponses['overdue 60'];
+  if (q.includes('action') || q.includes('suggest') || q.includes('recommend')) return aiResponses['collection actions'];
+  if (q.includes('dso') || q.includes('trend') || q.includes('days')) return aiResponses['dso'];
+  return `I found relevant information for: <b>"${q}"</b><br><br>
+    Based on current O2C data:<br>
+    • Total AR: $24.8M &bull; 595 open invoices<br>
+    • 23 high-risk accounts identified<br>
+    • Forecast confidence: 91% (30-day)<br><br>
+    Try asking about a specific customer, forecast period, or action recommendation for a more detailed analysis.`;
+}
+
+function sendMessage() {
+  const input = document.getElementById('chatInput');
+  const q = input.value.trim();
+  if (!q) return;
+  appendMsg('user', q);
+  input.value = '';
+  showTyping();
+  setTimeout(() => {
+    removeTyping();
+    appendMsg('ai', getAIResponse(q));
+  }, 900 + Math.random() * 600);
+}
+
+function sendQuickPrompt(el) {
+  document.getElementById('chatInput').value = el.textContent;
+  sendMessage();
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
+
+function appendMsg(role, html) {
+  const box = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+  div.innerHTML = `
+    <div class="msg-avatar">${role === 'ai' ? '&#129302;' : '&#128100;'}</div>
+    <div class="msg-bubble">${html}</div>`;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+}
+
+function showTyping() {
+  const box = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = 'msg ai';
+  div.id = 'typing-indicator';
+  div.innerHTML = `<div class="msg-avatar">&#129302;</div>
+    <div class="msg-bubble"><div class="typing"><span></span><span></span><span></span></div></div>`;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+}
+
+function removeTyping() {
+  const t = document.getElementById('typing-indicator');
+  if (t) t.remove();
+}
+
+// ── Charts ──
+const charts = {};
+
+function makeChart(id, config) {
+  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+  const el = document.getElementById(id);
+  if (!el) return;
+  charts[id] = new Chart(el.getContext('2d'), config);
+}
+
+function initPageCharts(page) {
+  if (page === 'dashboard') {
+    makeTrendChart();
+    makeAgingDoughnut();
+    makeRiskRadar();
+  } else if (page === 'forecast') {
+    makeForecastChart();
+    populateForecastTable();
+  } else if (page === 'aging') {
+    makeAgingTrend();
+    makeSegmentChart();
+  } else if (page === 'customers') {
+    populateCustomerTable();
+    makeRiskDistChart();
+    makePayBehaviourChart();
+  } else if (page === 'actions') {
+    populateActionTable();
+  }
+}
+
+// Trend
+function makeTrendChart() {
+  makeChart('chartTrend', {
+    type: 'bar',
+    data: {
+      labels: months,
+      datasets: [
+        { label: 'Actual', data: [7.2,6.8,8.1,7.9,9.1,null,null,null,null,null,null,null], backgroundColor: 'rgba(26,86,219,.75)', borderRadius: 5 },
+        { label: 'AI Forecast', data: [null,null,null,null,9.1,8.8,9.4,10.1,9.8,10.3,11.0,10.7], type: 'line', borderColor: '#0ea5e9', backgroundColor: 'rgba(14,165,233,.1)', borderWidth: 2, fill: true, tension: .4, pointRadius: 4 },
+        { label: 'Target', data: [8,8,8.5,8.5,9,9,9,9.5,9.5,10,10,10], type: 'line', borderColor: '#f59e0b', borderDash: [6,3], borderWidth: 2, pointRadius: 0, fill: false },
+      ]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'top', labels: { font: { size: 11 } } } }, scales: { y: { title: { display: true, text: '$M' } } } }
+  });
+}
+
+// Aging doughnut
+function makeAgingDoughnut() {
+  makeChart('chartAging', {
+    type: 'doughnut',
+    data: {
+      labels: ['Current', '1–30 Days', '31–60 Days', '61–90 Days', '90+ Days'],
+      datasets: [{ data: [11.2, 5.8, 3.9, 2.4, 1.5], backgroundColor: ['#10b981','#f59e0b','#f97316','#ef4444','#a855f7'], borderWidth: 2 }]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'right', labels: { font: { size: 11 } } } }, cutout: '60%' }
+  });
+}
+
+// Risk radar
+function makeRiskRadar() {
+  makeChart('chartRisk', {
+    type: 'radar',
+    data: {
+      labels: ['Payment Speed', 'Credit Util.', 'Dispute Rate', 'Contact Rate', 'History Score'],
+      datasets: [
+        { label: 'Portfolio Avg', data: [72, 58, 34, 81, 69], borderColor: '#1a56db', backgroundColor: 'rgba(26,86,219,.15)', pointBackgroundColor: '#1a56db' },
+        { label: 'High Risk Avg', data: [28, 88, 72, 32, 24], borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,.1)', pointBackgroundColor: '#ef4444' },
+      ]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'top', labels: { font: { size: 11 } } } }, scales: { r: { min: 0, max: 100, ticks: { stepSize: 25, font: { size: 10 } } } } }
+  });
+}
+
+// Forecast
+function makeForecastChart() {
+  const labels = weeks13;
+  const actual =  [2.1, 2.8, 1.6, 1.9, null, null, null, null, null, null, null, null, null];
+  const forecast = [2.1, 2.8, 1.6, 1.9, 2.2, 2.5, 2.1, 2.4, 2.0, 2.3, 2.6, 2.2, 2.4];
+  const upper =   [2.4, 3.1, 1.9, 2.2, 2.5, 2.9, 2.5, 2.8, 2.4, 2.7, 3.1, 2.7, 2.9];
+  const lower =   [1.9, 2.5, 1.3, 1.7, 1.9, 2.1, 1.7, 2.0, 1.6, 1.9, 2.1, 1.7, 1.9];
+
+  makeChart('chartForecast', {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Actual', data: actual, borderColor: '#1a56db', backgroundColor: 'rgba(26,86,219,.1)', borderWidth: 2.5, fill: false, tension: .4, pointRadius: 5, pointBackgroundColor: '#1a56db' },
+        { label: 'AI Forecast', data: forecast, borderColor: '#0ea5e9', borderDash: [6,3], borderWidth: 2, fill: false, tension: .4, pointRadius: 3 },
+        { label: 'Upper Bound', data: upper, borderColor: 'rgba(16,185,129,.4)', backgroundColor: 'rgba(16,185,129,.08)', borderWidth: 1, fill: '+1', tension: .4, pointRadius: 0 },
+        { label: 'Lower Bound', data: lower, borderColor: 'rgba(16,185,129,.4)', borderWidth: 1, fill: false, tension: .4, pointRadius: 0 },
+      ]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'top', labels: { font: { size: 11 } } } }, scales: { y: { title: { display: true, text: '$M' } } } }
+  });
+}
+
+function populateForecastTable() {
+  const tbody = document.getElementById('forecastTable');
+  tbody.innerHTML = forecastData.map(r => `
+    <tr>
+      <td>${r.week}</td>
+      <td><strong>$${(r.forecast/1000).toFixed(1)}M</strong></td>
+      <td style="color:var(--muted)">$${(r.low/1000).toFixed(1)}M</td>
+      <td style="color:var(--muted)">$${(r.high/1000).toFixed(1)}M</td>
+      <td><span class="badge ${parseInt(r.conf)>88?'badge-green':parseInt(r.conf)>82?'badge-blue':'badge-amber'}">${r.conf}</span></td>
+      <td style="font-size:12px">${r.driver}</td>
+    </tr>`).join('');
+}
+
+function updateForecast() { makeForecastChart(); }
+function runForecast() {
+  const btn = document.querySelector('[onclick="runForecast()"]');
+  btn.textContent = '&#9203; Running…';
+  setTimeout(() => { btn.textContent = '&#128200; Run Forecast'; makeForecastChart(); }, 1200);
+}
+
+// Aging trend
+function makeAgingTrend() {
+  makeChart('chartAgingTrend', {
+    type: 'line',
+    data: {
+      labels: ['Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May'],
+      datasets: [
+        { label: 'Current', data: [10.2,10.8,11.0,10.9,11.1,11.2], borderColor:'#10b981', fill:false, tension:.4, borderWidth:2 },
+        { label: '1–30 Days', data: [6.1,6.4,5.9,6.1,5.8,5.8], borderColor:'#f59e0b', fill:false, tension:.4, borderWidth:2 },
+        { label: '31–60 Days', data: [4.8,4.5,4.2,4.0,4.1,3.9], borderColor:'#f97316', fill:false, tension:.4, borderWidth:2 },
+        { label: '60+ Days', data: [5.2,4.8,4.4,4.2,4.0,3.9], borderColor:'#ef4444', fill:false, tension:.4, borderWidth:2 },
+      ]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'top', labels: { font: { size: 11 } } } }, scales: { y: { title: { display: true, text: '$M' } } } }
+  });
+}
+
+function makeSegmentChart() {
+  makeChart('chartSegment', {
+    type: 'bar',
+    data: {
+      labels: ['Enterprise', 'Mid-Market', 'SMB', 'Government', 'Other'],
+      datasets: [
+        { label: 'Current', data: [5.8,3.1,1.5,0.6,0.2], backgroundColor:'#10b981', borderRadius:4 },
+        { label: '1–30 Days', data: [2.9,1.6,0.9,0.3,0.1], backgroundColor:'#f59e0b', borderRadius:4 },
+        { label: '60+ Days', data: [2.1,1.2,0.5,0.1,0.0], backgroundColor:'#ef4444', borderRadius:4 },
+      ]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'top', labels: { font: { size: 11 } } } }, scales: { x: { stacked: true }, y: { stacked: true, title: { display: true, text: '$M' } } } }
+  });
+}
+
+// Customers
+function populateCustomerTable() {
+  const tbody = document.getElementById('customerTable');
+  tbody.innerHTML = customers.map(c => {
+    const riskClass = c.risk >= 80 ? 'low' : c.risk >= 50 ? 'medium' : 'high';
+    const barColor  = c.risk >= 80 ? '#ef4444' : c.risk >= 50 ? '#f59e0b' : '#10b981';
+    return `<tr>
+      <td><strong>${c.name}</strong></td>
+      <td><span class="badge badge-blue">${c.segment}</span></td>
+      <td>${c.outstanding}</td>
+      <td>${c.avgDays} days</td>
+      <td>${c.rate}</td>
+      <td>
+        <span class="score-pill ${riskClass}">${c.risk}/100</span>
+        <div class="risk-bar" style="margin-top:4px"><div class="risk-fill" style="width:${c.risk}%;background:${barColor}"></div></div>
+      </td>
+      <td>${c.trend}</td>
+      <td><button class="btn btn-outline btn-sm" onclick="navigate('enquiry',null)">&#129302; Ask AI</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function makeRiskDistChart() {
+  makeChart('chartRiskDist', {
+    type: 'doughnut',
+    data: {
+      labels: ['High Risk', 'Medium Risk', 'Low Risk'],
+      datasets: [{ data: [23, 48, 164], backgroundColor: ['#ef4444','#f59e0b','#10b981'], borderWidth: 2 }]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } }, cutout: '55%' }
+  });
+}
+
+function makePayBehaviourChart() {
+  makeChart('chartPayBehaviour', {
+    type: 'scatter',
+    data: {
+      datasets: [
+        { label: 'High Risk', data: [{x:92,y:62},{x:78,y:71},{x:63,y:68}], backgroundColor:'rgba(239,68,68,.7)', pointRadius:8 },
+        { label: 'Medium Risk', data: [{x:47,y:83},{x:61,y:79},{x:25,y:88}], backgroundColor:'rgba(245,158,11,.7)', pointRadius:8 },
+        { label: 'Low Risk', data: [{x:8,y:94},{x:5,y:97},{x:12,y:92},{x:3,y:98}], backgroundColor:'rgba(16,185,129,.7)', pointRadius:8 },
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'top', labels: { font: { size: 11 } } } },
+      scales: {
+        x: { title: { display: true, text: 'Avg Days Late' } },
+        y: { title: { display: true, text: 'Payment Rate (%)' }, min: 50, max: 100 }
+      }
+    }
+  });
+}
+
+// Actions
+function populateActionTable() {
+  const tbody = document.getElementById('actionTable');
+  tbody.innerHTML = actions.map((a, i) => {
+    const statusClass = a.status === 'Open' ? 'badge-blue' : a.status === 'In Progress' ? 'badge-amber' : 'badge-green';
+    return `<tr>
+      <td>${a.priority}</td>
+      <td><strong>${a.customer}</strong></td>
+      <td>${a.action}</td>
+      <td><strong>${a.amount}</strong></td>
+      <td>${a.due}</td>
+      <td>${a.owner}</td>
+      <td><span class="badge ${statusClass}">${a.status}</span></td>
+      <td><button class="btn btn-outline btn-sm" onclick="completeAction(this, ${i})">&#10003;</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function completeAction(btn, i) {
+  btn.closest('tr').style.opacity = '.4';
+  btn.textContent = '&#10003; Done';
+  btn.disabled = true;
+}
+
+function generateActions() {
+  const btn = document.querySelector('[onclick="generateActions()"]');
+  btn.textContent = '&#9203; Analyzing…';
+  setTimeout(() => { btn.textContent = '&#129504; Re-prioritize with AI'; populateActionTable(); }, 1000);
+}
+
+// ── Init ──
+initPageCharts('dashboard');
+</script>
+</body>
+</html>
