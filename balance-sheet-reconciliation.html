@@ -1,0 +1,1655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Balance Sheet Reconciliation</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --primary: #1a56db;
+      --primary-dark: #1e40af;
+      --accent: #0ea5e9;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --surface: #f8fafc;
+      --card: #ffffff;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --muted: #64748b;
+      --sidebar-w: 240px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--surface);
+      color: var(--text);
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: var(--sidebar-w);
+      background: #0f172a;
+      color: #cbd5e1;
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .sidebar-brand {
+      padding: 20px 18px 16px;
+      border-bottom: 1px solid #1e293b;
+    }
+
+    .sidebar-brand .logo {
+      font-size: 13px;
+      font-weight: 700;
+      color: #f1f5f9;
+      letter-spacing: .5px;
+    }
+
+    .sidebar-brand .sub {
+      font-size: 11px;
+      color: #64748b;
+      margin-top: 2px;
+    }
+
+    .sidebar-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      color: #475569;
+      padding: 18px 18px 6px;
+      text-transform: uppercase;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 18px;
+      cursor: pointer;
+      font-size: 13px;
+      border-left: 3px solid transparent;
+      transition: background .15s, color .15s;
+    }
+
+    .nav-item:hover { background: #1e293b; color: #f1f5f9; }
+
+    .nav-item.active {
+      background: #1e3a5f;
+      border-left-color: var(--accent);
+      color: #e0f2fe;
+    }
+
+    .nav-item .icon { font-size: 16px; width: 20px; text-align: center; }
+
+    .sidebar-footer {
+      margin-top: auto;
+      padding: 14px 18px;
+      border-top: 1px solid #1e293b;
+      font-size: 11px;
+      color: #475569;
+    }
+
+    /* ── Main ── */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .topbar {
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .topbar-title { font-size: 15px; font-weight: 600; }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 9px;
+      border-radius: 999px;
+    }
+
+    .badge-blue { background: #dbeafe; color: #1d4ed8; }
+    .badge-green { background: #d1fae5; color: #065f46; }
+    .badge-amber { background: #fef3c7; color: #92400e; }
+    .badge-red { background: #fee2e2; color: #991b1b; }
+    .badge-grey { background: #e2e8f0; color: #475569; }
+
+    .avatar {
+      width: 32px; height: 32px;
+      background: var(--primary);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 12px; font-weight: 700;
+    }
+
+    .content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+    }
+
+    /* ── Pages ── */
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* ── KPI row ── */
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .kpi-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .kpi-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      border-radius: 12px 12px 0 0;
+    }
+
+    .kpi-card.blue::before { background: var(--primary); }
+    .kpi-card.green::before { background: var(--success); }
+    .kpi-card.amber::before { background: var(--warning); }
+    .kpi-card.red::before { background: var(--danger); }
+
+    .kpi-label { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
+    .kpi-value { font-size: 28px; font-weight: 700; margin: 6px 0 4px; }
+    .kpi-delta { font-size: 12px; color: var(--muted); }
+    .kpi-delta .up { color: var(--success); }
+    .kpi-delta .dn { color: var(--danger); }
+    .kpi-icon { position: absolute; right: 18px; top: 18px; font-size: 28px; opacity: .12; }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px 22px;
+      margin-bottom: 20px;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .card-title { font-size: 14px; font-weight: 600; }
+    .card-subtitle { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+    /* ── Table ── */
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+    td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #f8fafc; }
+
+    /* ── Risk bar ── */
+    .risk-bar {
+      height: 6px;
+      background: #e2e8f0;
+      border-radius: 4px;
+      overflow: hidden;
+      width: 80px;
+    }
+
+    .risk-fill { height: 100%; border-radius: 4px; }
+
+    /* ── AI Enquiry ── */
+    .enquiry-layout {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 20px;
+      height: calc(100vh - 130px);
+    }
+
+    .chat-panel {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .chat-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .ai-avatar {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, #1a56db, #0ea5e9);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 16px;
+    }
+
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .msg {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+
+    .msg.user { flex-direction: row-reverse; }
+
+    .msg-bubble {
+      max-width: 75%;
+      padding: 12px 15px;
+      border-radius: 12px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .msg.ai .msg-bubble {
+      background: #f1f5f9;
+      border-bottom-left-radius: 4px;
+    }
+
+    .msg.user .msg-bubble {
+      background: var(--primary);
+      color: #fff;
+      border-bottom-right-radius: 4px;
+    }
+
+    .msg-avatar {
+      width: 28px; height: 28px;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+
+    .msg.ai .msg-avatar { background: linear-gradient(135deg, #1a56db, #0ea5e9); color: #fff; }
+    .msg.user .msg-avatar { background: #e2e8f0; }
+
+    .chat-input-area {
+      padding: 14px 16px;
+      border-top: 1px solid var(--border);
+    }
+
+    .chat-input-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .chat-input {
+      flex: 1;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 13px;
+      outline: none;
+      font-family: inherit;
+      resize: none;
+    }
+
+    .chat-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px #dbeafe; }
+
+    .btn {
+      padding: 9px 18px;
+      border-radius: 8px;
+      border: none;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity .15s;
+    }
+
+    .btn:hover { opacity: .85; }
+
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-sm { padding: 5px 12px; font-size: 12px; }
+
+    .quick-prompts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    .quick-chip {
+      background: #f1f5f9;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 5px 10px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: background .15s;
+    }
+
+    .quick-chip:hover { background: #dbeafe; border-color: #93c5fd; color: var(--primary-dark); }
+
+    .context-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      overflow-y: auto;
+    }
+
+    /* ── Controls ── */
+    .controls-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    select, input[type="date"], input[type="text"] {
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 7px 12px;
+      font-size: 13px;
+      outline: none;
+      font-family: inherit;
+    }
+
+    select:focus, input:focus { border-color: var(--primary); }
+
+    .insight-box {
+      background: linear-gradient(135deg, #eff6ff, #dbeafe);
+      border: 1px solid #93c5fd;
+      border-radius: 10px;
+      padding: 14px 16px;
+      font-size: 13px;
+      color: #1e40af;
+    }
+
+    .insight-box strong { display: block; margin-bottom: 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; color: #1d4ed8; }
+
+    .insight-box ul { padding-left: 16px; line-height: 1.8; }
+
+    /* ── Aging buckets ── */
+    .aging-buckets {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .bucket {
+      text-align: center;
+      padding: 14px 10px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+
+    .bucket-label { font-size: 11px; color: var(--muted); font-weight: 600; }
+    .bucket-value { font-size: 20px; font-weight: 700; margin: 6px 0 4px; }
+    .bucket-count { font-size: 11px; color: var(--muted); }
+
+    .bucket.current { background: #ecfdf5; border-color: #6ee7b7; }
+    .bucket.d30 { background: #fffbeb; border-color: #fcd34d; }
+    .bucket.d60 { background: #fff7ed; border-color: #fb923c; }
+    .bucket.d90 { background: #fef2f2; border-color: #fca5a5; }
+    .bucket.d90plus { background: #fdf2f8; border-color: #f0abfc; }
+
+    /* ── Score pill ── */
+    .score-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .score-pill.high { background: #d1fae5; color: #065f46; }
+    .score-pill.medium { background: #fef3c7; color: #92400e; }
+    .score-pill.low { background: #fee2e2; color: #991b1b; }
+
+    /* ── Typing indicator ── */
+    .typing {
+      display: flex; gap: 4px; align-items: center; padding: 4px 0;
+    }
+
+    .typing span {
+      width: 6px; height: 6px;
+      background: var(--muted);
+      border-radius: 50%;
+      animation: bounce 1s infinite;
+    }
+
+    .typing span:nth-child(2) { animation-delay: .15s; }
+    .typing span:nth-child(3) { animation-delay: .3s; }
+
+    @keyframes bounce {
+      0%, 80%, 100% { transform: translateY(0); }
+      40% { transform: translateY(-6px); }
+    }
+
+    .progress-bar {
+      height: 8px;
+      background: #e2e8f0;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 6px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width .6s ease;
+    }
+
+    .tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .scrollbar-thin::-webkit-scrollbar { width: 5px; }
+    .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+    .scrollbar-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+
+    canvas { max-height: 260px !important; }
+
+    /* ── Workflow stepper ── */
+    .stepper { display: flex; align-items: flex-start; margin: 10px 0 4px; }
+    .step { flex: 1; text-align: center; position: relative; }
+    .step-circle {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: #e2e8f0; color: var(--muted);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700; margin: 0 auto 6px;
+      position: relative; z-index: 1;
+    }
+    .step-line {
+      position: absolute; top: 14px; left: -50%; width: 100%; height: 2px;
+      background: #e2e8f0; z-index: 0;
+    }
+    .step:first-child .step-line { display: none; }
+    .step.done .step-circle { background: var(--success); color: #fff; }
+    .step.done .step-line { background: var(--success); }
+    .step.current .step-circle { background: var(--primary); color: #fff; box-shadow: 0 0 0 4px #dbeafe; }
+    .step.flagged .step-circle { background: var(--danger); color: #fff; }
+    .step-label { font-size: 10px; color: var(--muted); font-weight: 600; }
+    .step-sub { font-size: 10px; color: var(--muted); }
+
+    .stepper-mini { display: flex; gap: 4px; align-items: center; }
+    .stepper-mini .dot { width: 9px; height: 9px; border-radius: 50%; background: #e2e8f0; }
+    .stepper-mini .dot.done { background: var(--success); }
+    .stepper-mini .dot.current { background: var(--primary); }
+    .stepper-mini .dot.flagged { background: var(--danger); }
+    .stepper-mini .bar { width: 14px; height: 2px; background: #e2e8f0; }
+    .stepper-mini .bar.done { background: var(--success); }
+
+    /* ── Timeline ── */
+    .timeline { display: flex; flex-direction: column; }
+    .timeline-item { display: flex; gap: 12px; position: relative; padding-bottom: 18px; }
+    .timeline-item::before {
+      content: ''; position: absolute; left: 5px; top: 16px; bottom: 0; width: 2px; background: var(--border);
+    }
+    .timeline-item:last-child::before { display: none; }
+    .timeline-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--primary); flex-shrink: 0; margin-top: 3px; }
+    .timeline-dot.red { background: var(--danger); }
+    .timeline-dot.green { background: var(--success); }
+    .timeline-dot.amber { background: var(--warning); }
+    .timeline-content { font-size: 12px; line-height: 1.5; }
+    .timeline-time { color: var(--muted); font-size: 11px; }
+
+    /* ── Kanban ── */
+    .kanban { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+    .kanban-col { background: #f8fafc; border: 1px solid var(--border); border-radius: 10px; padding: 10px; min-height: 120px; }
+    .kanban-col-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); margin-bottom: 10px; display: flex; justify-content: space-between; }
+    .kanban-card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+      padding: 10px 12px; margin-bottom: 8px; font-size: 12px; cursor: pointer;
+      border-left: 3px solid var(--border);
+    }
+    .kanban-card:hover { box-shadow: 0 2px 6px rgba(15,23,42,.08); }
+    .kanban-card .kc-title { font-weight: 700; margin-bottom: 3px; }
+    .kanban-card .kc-sub { color: var(--muted); font-size: 11px; }
+  </style>
+</head>
+<body>
+
+<!-- ══════════ SIDEBAR ══════════ -->
+<nav class="sidebar">
+  <div class="sidebar-brand">
+    <div class="logo">&#129518; AI BS Reconciliation</div>
+    <div class="sub">Record to Report</div>
+  </div>
+
+  <div class="sidebar-label">Analytics</div>
+  <div class="nav-item active" onclick="navigate('dashboard', this)">
+    <span class="icon">&#128202;</span> Dashboard
+  </div>
+  <div class="nav-item" onclick="navigate('aging', this)">
+    <span class="icon">&#9201;</span> Aging Analysis
+  </div>
+
+  <div class="sidebar-label">Operations</div>
+  <div class="nav-item" onclick="navigate('accounts', this)">
+    <span class="icon">&#128209;</span> Account Reconciliations
+  </div>
+  <div class="nav-item" onclick="navigate('workspace', this)">
+    <span class="icon">&#128295;</span> Reconciliation Workspace
+  </div>
+  <div class="nav-item" onclick="navigate('signoff', this)">
+    <span class="icon">&#9989;</span> Sign-off Workflow
+  </div>
+
+  <div class="sidebar-label">AI Tools</div>
+  <div class="nav-item" onclick="navigate('enquiry', this)">
+    <span class="icon">&#129302;</span> AI Enquiry
+  </div>
+
+  <div class="sidebar-footer">v1.0 Prototype &bull; Jul 2026</div>
+</nav>
+
+<!-- ══════════ MAIN ══════════ -->
+<div class="main">
+  <div class="topbar">
+    <span class="topbar-title" id="page-title">Reconciliation Dashboard</span>
+    <div class="topbar-right">
+      <span class="badge badge-blue">&#x25CF; Day 4 of 6</span>
+      <span style="font-size:13px;color:var(--muted)">Period: Jul 2026 Close</span>
+      <div class="avatar">GL</div>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ══ DASHBOARD ══ -->
+    <div id="page-dashboard" class="page active">
+      <div class="kpi-row">
+        <div class="kpi-card blue">
+          <div class="kpi-icon">&#128209;</div>
+          <div class="kpi-label">Accounts in Scope</div>
+          <div class="kpi-value">186</div>
+          <div class="kpi-delta">12 flagship accounts detailed below</div>
+        </div>
+        <div class="kpi-card green">
+          <div class="kpi-icon">&#9989;</div>
+          <div class="kpi-label">Certified</div>
+          <div class="kpi-value">61%</div>
+          <div class="kpi-delta"><span class="up">&#9650; 114 / 186</span> accounts signed off</div>
+        </div>
+        <div class="kpi-card amber">
+          <div class="kpi-icon">&#9878;</div>
+          <div class="kpi-label">Unexplained Variance</div>
+          <div class="kpi-value">$597K</div>
+          <div class="kpi-delta">6 accounts with open variance</div>
+        </div>
+        <div class="kpi-card red">
+          <div class="kpi-icon">&#128680;</div>
+          <div class="kpi-label">Past Due / Flagged</div>
+          <div class="kpi-value">3</div>
+          <div class="kpi-delta"><span class="dn">&#9650; 1</span> escalated to controller today</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Close Progress by Category</div>
+              <div class="card-subtitle">Reconciliation status across balance sheet categories</div>
+            </div>
+            <span class="badge badge-blue">186 accounts</span>
+          </div>
+          <canvas id="chartCompletion"></canvas>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Close Cycle Completion Trend</div>
+              <div class="card-subtitle">% of accounts certified by close day</div>
+            </div>
+          </div>
+          <canvas id="chartCloseTrend"></canvas>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Accounts Requiring Attention</div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Account</th>
+                <th>GL Balance</th>
+                <th>Variance</th>
+                <th>Risk</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="attentionTable"></tbody>
+          </table>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">AI Reconciliation Insights</div>
+          </div>
+          <div class="insight-box" style="margin-bottom:14px">
+            <strong>&#129504; AI Recommendation</strong>
+            <ul>
+              <li><b>Suspense Account (3000)</b> has $184K unmatched with 23 open items — oldest is 95 days, recommend immediate clearing sprint</li>
+              <li><b>Intercompany Payable</b> mismatch of $95K vs APAC Pte Ltd sub-ledger — likely unconfirmed intercompany billing</li>
+              <li>3 accounts are past their certification due date and now escalated to the Controller</li>
+              <li>Auto-match engine resolved 41 of 64 open items this close &mdash; 64% straight-through match rate</li>
+            </ul>
+          </div>
+          <canvas id="chartRiskDist" style="max-height:160px"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ ACCOUNTS ══ -->
+    <div id="page-accounts" class="page">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Account Reconciliations</div>
+            <div class="card-subtitle">GL balance vs sub-ledger / supporting schedule, by account</div>
+          </div>
+          <div class="controls-row">
+            <select id="filterCategory" onchange="renderAccountsTable()">
+              <option value="">All Categories</option>
+              <option value="Assets">Assets</option>
+              <option value="Liabilities">Liabilities</option>
+              <option value="Equity">Equity</option>
+            </select>
+            <select id="filterStatus" onchange="renderAccountsTable()">
+              <option value="">All Statuses</option>
+              <option value="Not Started">Not Started</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Reviewed">Reviewed</option>
+              <option value="Certified">Certified</option>
+              <option value="Flagged">Flagged</option>
+            </select>
+            <select id="filterRisk" onchange="renderAccountsTable()">
+              <option value="">All Risk</option>
+              <option value="High">High Risk</option>
+              <option value="Medium">Medium Risk</option>
+              <option value="Low">Low Risk</option>
+            </select>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Account</th>
+              <th>Category</th>
+              <th>Entity</th>
+              <th>GL Balance</th>
+              <th>Sub-ledger Balance</th>
+              <th>Variance</th>
+              <th>Open Items</th>
+              <th>Status</th>
+              <th>Risk</th>
+              <th>Owner</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="accountsTable"></tbody>
+        </table>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Variance by Account</div>
+          </div>
+          <canvas id="chartVarianceByAccount"></canvas>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Status Mix — Detailed Accounts</div>
+          </div>
+          <canvas id="chartStatusMix"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ WORKSPACE ══ -->
+    <div id="page-workspace" class="page">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Reconciliation Workspace</div>
+            <div class="card-subtitle">Select an account to review GL vs supporting balance and clear reconciling items</div>
+          </div>
+          <div class="controls-row">
+            <select id="workspaceAccountSelect" onchange="renderWorkspace(this.value)"></select>
+          </div>
+        </div>
+
+        <div class="kpi-row" style="margin-bottom:16px">
+          <div class="kpi-card blue">
+            <div class="kpi-label">GL Balance</div>
+            <div class="kpi-value" id="wsGlBalance">—</div>
+          </div>
+          <div class="kpi-card blue">
+            <div class="kpi-label">Sub-ledger / Supporting Balance</div>
+            <div class="kpi-value" id="wsSubBalance">—</div>
+          </div>
+          <div class="kpi-card amber" id="wsVarianceCard">
+            <div class="kpi-label">Variance</div>
+            <div class="kpi-value" id="wsVariance">—</div>
+            <div class="kpi-delta" id="wsVarianceNote">—</div>
+          </div>
+          <div class="kpi-card green" id="wsStatusCard">
+            <div class="kpi-label">Status</div>
+            <div class="kpi-value" id="wsStatus" style="font-size:20px">—</div>
+            <div class="kpi-delta" id="wsOwnerNote">—</div>
+          </div>
+        </div>
+
+        <div class="stepper" id="wsStepper"></div>
+        <div class="controls-row" style="margin-top:12px">
+          <button class="btn btn-primary btn-sm" onclick="advanceWorkspaceStatus()">&#9654; Advance Status</button>
+          <button class="btn btn-outline btn-sm" onclick="flagWorkspaceAccount()">&#128681; Flag for Controller Review</button>
+          <button class="btn btn-outline btn-sm" onclick="runAutoMatch()">&#129504; Run AI Auto-Match</button>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Open Reconciling Items</div>
+              <div class="card-subtitle" id="wsItemsSubtitle">—</div>
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th>Date</th>
+                <th>Age</th>
+                <th>Type</th>
+                <th>Amount</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="wsItemsTable"></tbody>
+          </table>
+          <div id="wsNoItems" style="display:none;text-align:center;color:var(--muted);font-size:13px;padding:24px 0">
+            &#9989; No open reconciling items — GL and sub-ledger fully matched.
+          </div>
+        </div>
+
+        <div class="context-panel" style="gap:20px">
+          <div class="card" style="margin-bottom:0">
+            <div class="card-title" style="margin-bottom:12px">&#129504; AI Insight</div>
+            <div class="insight-box" id="wsInsight"></div>
+          </div>
+
+          <div class="card" style="margin-bottom:0">
+            <div class="card-title" style="margin-bottom:12px">&#128172; Audit Trail &amp; Comments</div>
+            <div class="timeline scrollbar-thin" id="wsTimeline" style="max-height:220px;overflow-y:auto"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ SIGN-OFF ══ -->
+    <div id="page-signoff" class="page">
+      <div class="kpi-row">
+        <div class="kpi-card blue">
+          <div class="kpi-label">Close Day</div>
+          <div class="kpi-value">4 / 6</div>
+          <div class="kpi-delta">Hard close: Jul 8, 2026</div>
+        </div>
+        <div class="kpi-card green">
+          <div class="kpi-label">Certified</div>
+          <div class="kpi-value">114 / 186</div>
+          <div class="kpi-delta">61% complete</div>
+        </div>
+        <div class="kpi-card amber">
+          <div class="kpi-label">Pending Review</div>
+          <div class="kpi-value">28</div>
+          <div class="kpi-delta">Awaiting reviewer action</div>
+        </div>
+        <div class="kpi-card red">
+          <div class="kpi-label">Escalated to Controller</div>
+          <div class="kpi-value">3</div>
+          <div class="kpi-delta">SLA breach risk</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Workflow Board</div>
+        </div>
+        <div class="kanban" id="kanbanBoard"></div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Preparer &rarr; Reviewer &rarr; Controller Status</div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Account</th>
+                <th>Preparer</th>
+                <th>Reviewer</th>
+                <th>Progress</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="signoffTable"></tbody>
+          </table>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Escalation Audit Trail — Intercompany Payable (2600)</div>
+          </div>
+          <div class="timeline scrollbar-thin" id="escalationTimeline" style="max-height:280px;overflow-y:auto"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ AGING ══ -->
+    <div id="page-aging" class="page">
+      <div class="aging-buckets">
+        <div class="bucket current">
+          <div class="bucket-label">0–30 Days</div>
+          <div class="bucket-value" style="color:var(--success)">$187K</div>
+          <div class="bucket-count">9 items</div>
+        </div>
+        <div class="bucket d30">
+          <div class="bucket-label">31–60 Days</div>
+          <div class="bucket-value" style="color:#d97706">$157K</div>
+          <div class="bucket-count">4 items</div>
+        </div>
+        <div class="bucket d60">
+          <div class="bucket-label">61–90 Days</div>
+          <div class="bucket-value" style="color:#ea580c">$143K</div>
+          <div class="bucket-count">2 items</div>
+        </div>
+        <div class="bucket d90">
+          <div class="bucket-label">91–180 Days</div>
+          <div class="bucket-value" style="color:var(--danger)">$110K</div>
+          <div class="bucket-count">1 item</div>
+        </div>
+        <div class="bucket d90plus">
+          <div class="bucket-label">180+ Days</div>
+          <div class="bucket-value" style="color:#9333ea">$0</div>
+          <div class="bucket-count">0 items</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Open Reconciling Item Value — 6-Period Trend</div>
+          </div>
+          <canvas id="chartAgingTrend"></canvas>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Aging by Balance Sheet Category</div>
+          </div>
+          <canvas id="chartAgingCategory"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Longest Outstanding Reconciling Items</div>
+          <button class="btn btn-outline btn-sm">&#8681; Export</button>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Account</th>
+              <th>Description</th>
+              <th>Age</th>
+              <th>Type</th>
+              <th>Amount</th>
+              <th>Recommended Action</th>
+            </tr>
+          </thead>
+          <tbody id="longestOpenTable"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ══ AI ENQUIRY ══ -->
+    <div id="page-enquiry" class="page">
+      <div class="enquiry-layout">
+
+        <!-- Chat -->
+        <div class="chat-panel">
+          <div class="chat-header">
+            <div class="ai-avatar">&#129302;</div>
+            <div>
+              <div style="font-weight:600;font-size:14px">Reconciliation AI Assistant</div>
+              <div style="font-size:11px;color:var(--muted)">Powered by ML &bull; Trained on R2R / GL data</div>
+            </div>
+            <span class="badge badge-green" style="margin-left:auto">Online</span>
+          </div>
+
+          <div class="chat-messages scrollbar-thin" id="chatMessages">
+            <div class="msg ai">
+              <div class="msg-avatar">&#129302;</div>
+              <div class="msg-bubble">
+                Hello! I'm your Balance Sheet Reconciliation AI assistant. I can help you with:<br><br>
+                &bull; <b>Unexplained variances</b> between GL and sub-ledger<br>
+                &bull; <b>Aging of open reconciling items</b><br>
+                &bull; <b>Flagged / overdue accounts</b> and escalation status<br>
+                &bull; <b>Account-level detail</b> (suspense, intercompany, accruals)<br>
+                &bull; <b>Close progress</b> and sign-off status<br><br>
+                What would you like to explore today?
+              </div>
+            </div>
+          </div>
+
+          <div class="chat-input-area">
+            <div class="quick-prompts">
+              <div class="quick-chip" onclick="sendQuickPrompt(this)">Largest unexplained variances</div>
+              <div class="quick-chip" onclick="sendQuickPrompt(this)">Suspense account status</div>
+              <div class="quick-chip" onclick="sendQuickPrompt(this)">Which accounts are flagged?</div>
+              <div class="quick-chip" onclick="sendQuickPrompt(this)">Explain intercompany payable variance</div>
+              <div class="quick-chip" onclick="sendQuickPrompt(this)">Aging summary of open items</div>
+              <div class="quick-chip" onclick="sendQuickPrompt(this)">Close certification status</div>
+            </div>
+            <div class="chat-input-row">
+              <textarea class="chat-input" id="chatInput" rows="2" placeholder="Ask anything about your balance sheet reconciliations…" onkeydown="handleKey(event)"></textarea>
+              <button class="btn btn-primary" onclick="sendMessage()">Send</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Context Panel -->
+        <div class="context-panel scrollbar-thin">
+          <div class="card" style="margin-bottom:0">
+            <div class="card-title" style="margin-bottom:14px">&#128202; Live Metrics</div>
+            <div style="display:flex;flex-direction:column;gap:10px;font-size:13px">
+              <div style="display:flex;justify-content:space-between">
+                <span style="color:var(--muted)">Accounts in Scope</span>
+                <strong>186</strong>
+              </div>
+              <div style="display:flex;justify-content:space-between">
+                <span style="color:var(--muted)">Certified</span>
+                <strong style="color:var(--success)">61% (114)</strong>
+              </div>
+              <div style="display:flex;justify-content:space-between">
+                <span style="color:var(--muted)">Unexplained Variance</span>
+                <strong style="color:var(--warning)">$597K</strong>
+              </div>
+              <div style="display:flex;justify-content:space-between">
+                <span style="color:var(--muted)">Flagged / Overdue</span>
+                <strong style="color:var(--danger)">3</strong>
+              </div>
+              <div style="display:flex;justify-content:space-between">
+                <span style="color:var(--muted)">Close Day</span>
+                <strong>4 of 6</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" style="margin-bottom:0">
+            <div class="card-title" style="margin-bottom:12px">&#128203; Recent Queries</div>
+            <div style="display:flex;flex-direction:column;gap:8px;font-size:12px;color:var(--muted)">
+              <div>&#128336; Suspense account aging</div>
+              <div>&#128336; Intercompany mismatch drivers</div>
+              <div>&#128336; Accounts overdue for certification</div>
+              <div>&#128336; Q2 close variance summary</div>
+            </div>
+          </div>
+
+          <div class="card" style="margin-bottom:0">
+            <div class="card-title" style="margin-bottom:12px">&#9889; Quick Actions</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <button class="btn btn-outline" style="width:100%;text-align:left;font-size:12px" onclick="navigate('accounts',null)">&#128209; Open Account Reconciliations</button>
+              <button class="btn btn-outline" style="width:100%;text-align:left;font-size:12px" onclick="navigate('aging',null)">&#9201; View Aging Report</button>
+              <button class="btn btn-outline" style="width:100%;text-align:left;font-size:12px" onclick="navigate('signoff',null)">&#9989; Open Sign-off Workflow</button>
+              <button class="btn btn-primary" style="width:100%;text-align:left;font-size:12px">&#8681; Export Close Package</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<script>
+// ── Data ──
+const accounts = [
+  { id:'1000', name:'Cash & Cash Equivalents',       category:'Assets',      entity:'US-East LLC',     glBalance:4820000,  subBalance:4820000,  status:'Certified',   risk:'Low',    owner:'Priya N.',   reviewer:'Mark D.',  due:'Jul 8' },
+  { id:'1200', name:'Accounts Receivable',            category:'Assets',      entity:'US-East LLC',     glBalance:9250000,  subBalance:9180000,  status:'In Progress', risk:'Medium', owner:'Priya N.',   reviewer:'Mark D.',  due:'Jul 8' },
+  { id:'1350', name:'Inventory',                       category:'Assets',      entity:'US-East LLC',     glBalance:3120000,  subBalance:3120000,  status:'Reviewed',    risk:'Low',    owner:'James O.',   reviewer:'Mark D.',  due:'Jul 8' },
+  { id:'1500', name:'Prepaid Expenses',                category:'Assets',      entity:'US-East LLC',     glBalance:640000,   subBalance:612000,   status:'In Progress', risk:'Medium', owner:'James O.',   reviewer:'Mark D.',  due:'Jul 8' },
+  { id:'1800', name:'Fixed Assets - Net',              category:'Assets',      entity:'EU-Central GmbH', glBalance:15400000, subBalance:15400000, status:'Certified',   risk:'Low',    owner:'Lena F.',    reviewer:'Mark D.',  due:'Jul 8' },
+  { id:'3000', name:'Suspense / Clearing Account',     category:'Assets',      entity:'US-East LLC',     glBalance:184000,   subBalance:0,        status:'Not Started', risk:'High',   owner:'James O.',   reviewer:'Mark D.',  due:'Jul 3' },
+  { id:'2000', name:'Accounts Payable',                category:'Liabilities', entity:'US-East LLC',     glBalance:5610000,  subBalance:5610000,  status:'Reviewed',    risk:'Low',    owner:'Priya N.',   reviewer:'Sarah W.', due:'Jul 8' },
+  { id:'2100', name:'Accrued Liabilities',             category:'Liabilities', entity:'US-East LLC',     glBalance:1840000,  subBalance:1720000,  status:'Flagged',     risk:'High',   owner:'James O.',   reviewer:'Sarah W.', due:'Jul 3' },
+  { id:'2400', name:'Deferred Revenue',                category:'Liabilities', entity:'EU-Central GmbH', glBalance:2960000,  subBalance:2905000,  status:'In Progress', risk:'Medium', owner:'Lena F.',    reviewer:'Sarah W.', due:'Jul 8' },
+  { id:'2600', name:'Intercompany Payable',            category:'Liabilities', entity:'APAC Pte Ltd',    glBalance:1120000,  subBalance:980000,   status:'Flagged',     risk:'High',   owner:'Wei T.',     reviewer:'Sarah W.', due:'Jul 3' },
+  { id:'2900', name:'Payroll Liabilities',             category:'Liabilities', entity:'US-East LLC',     glBalance:890000,   subBalance:890000,   status:'Certified',   risk:'Low',    owner:'Priya N.',   reviewer:'Sarah W.', due:'Jul 8' },
+  { id:'3900', name:'Retained Earnings',               category:'Equity',      entity:'US-East LLC',     glBalance:42300000, subBalance:42300000, status:'Certified',   risk:'Low',    owner:'Controller', reviewer:'CFO',      due:'Jul 8' },
+];
+accounts.forEach(a => a.variance = a.glBalance - a.subBalance);
+
+const reconItems = {
+  '1200': [
+    { desc:'Unapplied cash receipt — Contoso Ltd',             date:'Jun 16', age:41, type:'Timing',    amount:32000 },
+    { desc:'Duplicate invoice credit pending',                  date:'Jul 15', age:12, type:'Error',     amount:18500 },
+    { desc:'FX revaluation timing difference',                  date:'Jul 22', age:5,  type:'Timing',    amount:19500 },
+  ],
+  '1500': [
+    { desc:'Insurance amortization schedule lag',                date:'Jul 5',  age:22, type:'Timing',    amount:16000 },
+    { desc:'Software prepayment not yet allocated',              date:'Jul 18', age:9,  type:'Timing',    amount:12000 },
+  ],
+  '2100': [
+    { desc:'Bonus accrual true-up pending HR data',              date:'Jun 19', age:38, type:'Error',     amount:65000 },
+    { desc:'Unrecorded vendor accrual — Q2 services',            date:'Jun 5',  age:52, type:'Unmatched', amount:40000 },
+    { desc:'Duplicate accrual reversal needed',                  date:'Jul 13', age:14, type:'Error',     amount:15000 },
+  ],
+  '2400': [
+    { desc:'Contract modification not yet reflected',            date:'Jul 8',  age:19, type:'Timing',    amount:35000 },
+    { desc:'Revenue recognized early — reversal needed',         date:'Jul 19', age:8,  type:'Error',     amount:20000 },
+  ],
+  '2600': [
+    { desc:'Intercompany invoice mismatch — APAC vs US-East',    date:'May 27', age:61, type:'Unmatched', amount:95000 },
+    { desc:'FX translation difference',                          date:'Jun 27', age:30, type:'Timing',    amount:25000 },
+    { desc:'Unconfirmed intercompany billing',                   date:'Jun 13', age:44, type:'Unmatched', amount:20000 },
+  ],
+  '3000': [
+    { desc:'Unidentified wire receipt',                          date:'Apr 23', age:95, type:'Unmatched', amount:110000 },
+    { desc:'Payroll clearing account not swept',                 date:'May 22', age:66, type:'Timing',    amount:48000 },
+    { desc:'Unknown bank fee reversal',                          date:'Jun 27', age:30, type:'Error',     amount:26000 },
+  ],
+};
+
+const wsAudit = {
+  '1200': [
+    { color:'blue',  time:'Jul 24, 9:02 AM',  text:'Preparer <b>Priya N.</b> imported sub-ledger extract and ran auto-match (11 of 14 items cleared).' },
+    { color:'amber', time:'Jul 24, 2:15 PM',  text:'Comment: "Chasing Contoso Ltd cash application team on unapplied receipt."' },
+  ],
+  '2100': [
+    { color:'blue',  time:'Jul 22, 11:10 AM', text:'Preparer <b>James O.</b> submitted reconciliation with $120K open variance.' },
+    { color:'red',   time:'Jul 23, 4:40 PM',  text:'Reviewer <b>Sarah W.</b> flagged: bonus accrual true-up missing HR payroll file.' },
+    { color:'amber', time:'Jul 24, 10:05 AM', text:'Escalated to Controller — past due certification date (Jul 3).' },
+  ],
+  '2600': [
+    { color:'blue',  time:'Jul 21, 3:20 PM',  text:'Preparer <b>Wei T.</b> submitted with $140K open variance vs APAC sub-ledger.' },
+    { color:'red',   time:'Jul 22, 9:45 AM',  text:'Reviewer <b>Sarah W.</b> flagged intercompany invoice mismatch for confirmation.' },
+    { color:'amber', time:'Jul 23, 1:00 PM',  text:'Escalated to Controller — awaiting APAC counterpart confirmation.' },
+  ],
+  '3000': [
+    { color:'red',   time:'Jul 20, 8:30 AM',  text:'Reconciliation not started — account past due since Jul 3.' },
+    { color:'amber', time:'Jul 24, 5:00 PM',  text:'Auto-flagged by AI monitor: 23 open items, oldest 95 days, no owner activity.' },
+  ],
+};
+
+function fmt(n) {
+  const abs = Math.abs(n);
+  if (abs >= 1000000) return (n < 0 ? '-$' : '$') + (abs / 1000000).toFixed(2) + 'M';
+  if (abs >= 1000) return (n < 0 ? '-$' : '$') + (abs / 1000).toFixed(0) + 'K';
+  return (n < 0 ? '-$' : '$') + abs;
+}
+
+function statusBadgeClass(s) {
+  return { 'Not Started':'badge-grey', 'In Progress':'badge-blue', 'Reviewed':'badge-amber', 'Certified':'badge-green', 'Flagged':'badge-red' }[s] || 'badge-grey';
+}
+
+function riskPillClass(r) {
+  return r === 'High' ? 'low' : r === 'Medium' ? 'medium' : 'high';
+}
+
+function riskColor(r) {
+  return r === 'High' ? '#ef4444' : r === 'Medium' ? '#f59e0b' : '#10b981';
+}
+
+// ── Navigation ──
+const pageTitles = {
+  dashboard: 'Reconciliation Dashboard',
+  accounts: 'Account Reconciliations',
+  workspace: 'Reconciliation Workspace',
+  signoff: 'Sign-off Workflow',
+  aging: 'Aging Analysis — Open Reconciling Items',
+  enquiry: 'AI Reconciliation Enquiry',
+};
+
+function navigate(page, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.getElementById('page-title').textContent = pageTitles[page];
+  if (el) el.classList.add('active');
+  else document.querySelectorAll('.nav-item')[Object.keys(pageTitles).indexOf(page)]?.classList.add('active');
+  initPageCharts(page);
+}
+
+function initPageCharts(page) {
+  if (page === 'dashboard') {
+    renderAttentionTable();
+    makeCompletionChart();
+    makeCloseTrendChart();
+    makeRiskDistChart();
+  } else if (page === 'accounts') {
+    renderAccountsTable();
+  } else if (page === 'workspace') {
+    populateWorkspaceSelect();
+  } else if (page === 'signoff') {
+    renderKanban();
+    renderSignoffTable();
+    renderEscalationTimeline();
+  } else if (page === 'aging') {
+    makeAgingTrend();
+    makeAgingCategoryChart();
+    renderLongestOpenTable();
+  }
+}
+
+// ── Dashboard ──
+function renderAttentionTable() {
+  const rows = accounts.filter(a => a.variance !== 0).sort((a, b) => b.variance - a.variance).slice(0, 6);
+  document.getElementById('attentionTable').innerHTML = rows.map(a => `
+    <tr>
+      <td><strong>${a.id} · ${a.name}</strong></td>
+      <td>${fmt(a.glBalance)}</td>
+      <td style="color:var(--danger);font-weight:600">${fmt(a.variance)}</td>
+      <td><span class="score-pill ${riskPillClass(a.risk)}">&#9679; ${a.risk}</span></td>
+      <td><button class="btn btn-outline btn-sm" onclick="openInWorkspace('${a.id}')">Open</button></td>
+    </tr>`).join('');
+}
+
+function openInWorkspace(id) {
+  navigate('workspace', document.querySelectorAll('.nav-item')[3]);
+  setTimeout(() => {
+    const sel = document.getElementById('workspaceAccountSelect');
+    sel.value = id;
+    renderWorkspace(id);
+  }, 0);
+}
+
+function makeCompletionChart() {
+  makeChart('chartCompletion', {
+    type: 'bar',
+    data: {
+      labels: ['Assets', 'Liabilities', 'Equity'],
+      datasets: [
+        { label: 'Certified',    data: [40, 50, 20], backgroundColor: '#10b981', borderRadius: 4 },
+        { label: 'Reviewed',     data: [15, 20, 2],  backgroundColor: '#f59e0b', borderRadius: 4 },
+        { label: 'In Progress',  data: [10, 12, 0],  backgroundColor: '#1a56db', borderRadius: 4 },
+        { label: 'Not Started',  data: [5, 6, 0],    backgroundColor: '#94a3b8', borderRadius: 4 },
+        { label: 'Flagged',      data: [2, 4, 0],    backgroundColor: '#ef4444', borderRadius: 4 },
+      ]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'top', labels: { font: { size: 10 }, boxWidth: 12 } } }, scales: { x: { stacked: true }, y: { stacked: true, title: { display: true, text: '# Accounts' } } } }
+  });
+}
+
+function makeCloseTrendChart() {
+  makeChart('chartCloseTrend', {
+    type: 'line',
+    data: {
+      labels: ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6'],
+      datasets: [
+        { label: 'Actual % Certified', data: [12, 34, 48, 61, null, null], borderColor: '#1a56db', backgroundColor: 'rgba(26,86,219,.1)', borderWidth: 2.5, fill: true, tension: .4, pointRadius: 4 },
+        { label: 'Target Pace',        data: [17, 33, 50, 67, 83, 100], borderColor: '#f59e0b', borderDash: [6, 3], borderWidth: 2, pointRadius: 0, fill: false },
+      ]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'top', labels: { font: { size: 11 } } } }, scales: { y: { min: 0, max: 100, title: { display: true, text: '% Certified' } } } }
+  });
+}
+
+function makeRiskDistChart() {
+  makeChart('chartRiskDist', {
+    type: 'doughnut',
+    data: {
+      labels: ['High Risk', 'Medium Risk', 'Low Risk'],
+      datasets: [{ data: [14, 42, 130], backgroundColor: ['#ef4444', '#f59e0b', '#10b981'], borderWidth: 2 }]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } }, cutout: '55%' }
+  });
+}
+
+// ── Accounts ──
+function renderAccountsTable() {
+  const cat = document.getElementById('filterCategory')?.value || '';
+  const st = document.getElementById('filterStatus')?.value || '';
+  const rk = document.getElementById('filterRisk')?.value || '';
+  const rows = accounts.filter(a => (!cat || a.category === cat) && (!st || a.status === st) && (!rk || a.risk === rk));
+
+  document.getElementById('accountsTable').innerHTML = rows.map(a => `
+    <tr>
+      <td><strong>${a.id} · ${a.name}</strong></td>
+      <td><span class="badge badge-blue">${a.category}</span></td>
+      <td style="font-size:12px">${a.entity}</td>
+      <td>${fmt(a.glBalance)}</td>
+      <td>${fmt(a.subBalance)}</td>
+      <td style="${a.variance !== 0 ? 'color:var(--danger);font-weight:600' : 'color:var(--success)'}">${fmt(a.variance)}</td>
+      <td>${(reconItems[a.id] || []).length}</td>
+      <td><span class="badge ${statusBadgeClass(a.status)}">${a.status}</span></td>
+      <td><span class="score-pill ${riskPillClass(a.risk)}">${a.risk}</span></td>
+      <td style="font-size:12px">${a.owner}</td>
+      <td><button class="btn btn-outline btn-sm" onclick="openInWorkspace('${a.id}')">Open</button></td>
+    </tr>`).join('');
+
+  makeVarianceByAccountChart(rows);
+  makeStatusMixChart(rows);
+}
+
+function makeVarianceByAccountChart(rows) {
+  makeChart('chartVarianceByAccount', {
+    type: 'bar',
+    data: {
+      labels: rows.map(a => a.id),
+      datasets: [{ label: 'Variance ($)', data: rows.map(a => a.variance), backgroundColor: rows.map(a => a.variance > 100000 ? '#ef4444' : a.variance > 0 ? '#f59e0b' : '#10b981'), borderRadius: 4 }]
+    },
+    options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { title: { display: true, text: '$' } } } }
+  });
+}
+
+function makeStatusMixChart(rows) {
+  const counts = {};
+  rows.forEach(a => counts[a.status] = (counts[a.status] || 0) + 1);
+  makeChart('chartStatusMix', {
+    type: 'doughnut',
+    data: {
+      labels: Object.keys(counts),
+      datasets: [{ data: Object.values(counts), backgroundColor: Object.keys(counts).map(s => ({ 'Not Started':'#94a3b8', 'In Progress':'#1a56db', 'Reviewed':'#f59e0b', 'Certified':'#10b981', 'Flagged':'#ef4444' }[s])), borderWidth: 2 }]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } }, cutout: '55%' }
+  });
+}
+
+// ── Workspace ──
+function populateWorkspaceSelect() {
+  const sel = document.getElementById('workspaceAccountSelect');
+  if (sel.options.length === 0) {
+    sel.innerHTML = accounts.map(a => `<option value="${a.id}">${a.id} · ${a.name}</option>`).join('');
+    sel.value = '2100';
+  }
+  renderWorkspace(sel.value);
+}
+
+const stepOrder = ['Not Started', 'In Progress', 'Reviewed', 'Certified'];
+
+function renderWorkspace(id) {
+  const a = accounts.find(x => x.id === id);
+  if (!a) return;
+
+  document.getElementById('wsGlBalance').textContent = fmt(a.glBalance);
+  document.getElementById('wsSubBalance').textContent = fmt(a.subBalance);
+  document.getElementById('wsVariance').textContent = fmt(a.variance);
+  document.getElementById('wsVarianceNote').textContent = a.variance === 0 ? 'Within threshold ✓' : `Exceeds $10K materiality threshold`;
+  document.getElementById('wsVarianceCard').className = 'kpi-card ' + (a.variance === 0 ? 'green' : 'amber');
+  document.getElementById('wsStatus').textContent = a.status;
+  document.getElementById('wsStatusCard').className = 'kpi-card ' + (a.status === 'Flagged' ? 'red' : a.status === 'Certified' ? 'green' : 'blue');
+  document.getElementById('wsOwnerNote').textContent = `Owner: ${a.owner} · Reviewer: ${a.reviewer} · Due ${a.due}`;
+
+  // Stepper
+  const stepperEl = document.getElementById('wsStepper');
+  if (a.status === 'Flagged') {
+    stepperEl.innerHTML = ['Prepared', 'Reviewed', 'Flagged', 'Escalated'].map((label, i) => `
+      <div class="step ${i < 2 ? 'done' : i === 2 ? 'flagged' : ''}">
+        <div class="step-line"></div>
+        <div class="step-circle">${i < 2 ? '&#10003;' : i === 2 ? '!' : i + 1}</div>
+        <div class="step-label">${label}</div>
+      </div>`).join('');
+  } else {
+    const idx = stepOrder.indexOf(a.status);
+    stepperEl.innerHTML = stepOrder.map((label, i) => `
+      <div class="step ${i < idx ? 'done' : i === idx ? 'current' : ''}">
+        <div class="step-line"></div>
+        <div class="step-circle">${i < idx ? '&#10003;' : i + 1}</div>
+        <div class="step-label">${label}</div>
+      </div>`).join('');
+  }
+
+  // Items
+  const items = reconItems[id] || [];
+  document.getElementById('wsItemsSubtitle').textContent = items.length ? `${items.length} open items · ${fmt(items.reduce((s, i) => s + i.amount, 0))} total` : 'Fully matched';
+  document.getElementById('wsItemsTable').style.display = items.length ? '' : 'none';
+  document.getElementById('wsNoItems').style.display = items.length ? 'none' : '';
+  document.getElementById('wsItemsTable').innerHTML = items.map((it, i) => `
+    <tr>
+      <td>${it.desc}</td>
+      <td style="font-size:12px">${it.date}</td>
+      <td><span class="badge ${it.age > 60 ? 'badge-red' : it.age > 30 ? 'badge-amber' : 'badge-blue'}">${it.age}d</span></td>
+      <td><span class="badge badge-grey">${it.type}</span></td>
+      <td>${fmt(it.amount)}</td>
+      <td><button class="btn btn-outline btn-sm" onclick="clearItem('${id}', ${i})">Clear</button></td>
+    </tr>`).join('');
+
+  // AI insight
+  const insight = document.getElementById('wsInsight');
+  if (!items.length) {
+    insight.innerHTML = `<strong>&#129504; AI Assessment</strong>GL and sub-ledger balances match within tolerance. No action required — ready to certify.`;
+  } else {
+    const top = items.slice().sort((x, y) => y.amount - x.amount)[0];
+    const unmatchedCt = items.filter(i => i.type === 'Unmatched').length;
+    insight.innerHTML = `<strong>&#129504; AI Assessment</strong>
+      Largest driver: <b>${top.desc}</b> (${fmt(top.amount)}, ${top.age}d old).<br>
+      ${unmatchedCt ? `${unmatchedCt} item(s) could not be auto-matched to sub-ledger transactions — manual investigation recommended.` : 'All items are timing-related and expected to clear next period.'}`;
+  }
+
+  // Timeline
+  const events = wsAudit[id] || [{ color: 'blue', time: a.due, text: `Preparer ${a.owner} has not yet started this reconciliation.` }];
+  document.getElementById('wsTimeline').innerHTML = events.map(e => `
+    <div class="timeline-item">
+      <div class="timeline-dot ${e.color}"></div>
+      <div class="timeline-content"><div class="timeline-time">${e.time}</div>${e.text}</div>
+    </div>`).join('');
+
+  window._wsCurrentId = id;
+}
+
+function clearItem(id, idx) {
+  reconItems[id].splice(idx, 1);
+  const a = accounts.find(x => x.id === id);
+  a.subBalance += 0; // amounts remain informational in this prototype
+  renderWorkspace(id);
+}
+
+function advanceWorkspaceStatus() {
+  const a = accounts.find(x => x.id === window._wsCurrentId);
+  if (!a) return;
+  const idx = stepOrder.indexOf(a.status);
+  a.status = idx >= 0 && idx < stepOrder.length - 1 ? stepOrder[idx + 1] : (a.status === 'Flagged' ? 'In Progress' : a.status);
+  renderWorkspace(a.id);
+}
+
+function flagWorkspaceAccount() {
+  const a = accounts.find(x => x.id === window._wsCurrentId);
+  if (!a) return;
+  a.status = 'Flagged';
+  renderWorkspace(a.id);
+}
+
+function runAutoMatch() {
+  const btn = event.target;
+  const orig = btn.textContent;
+  btn.textContent = '⏳ Matching…';
+  setTimeout(() => { btn.innerHTML = '&#129504; Run AI Auto-Match'; renderWorkspace(window._wsCurrentId); }, 900);
+}
+
+// ── Sign-off ──
+function renderKanban() {
+  const cols = ['Not Started', 'In Progress', 'Reviewed', 'Certified', 'Flagged'];
+  const board = document.getElementById('kanbanBoard');
+  board.innerHTML = cols.map(status => {
+    const items = accounts.filter(a => a.status === status);
+    return `
+      <div class="kanban-col">
+        <div class="kanban-col-title"><span>${status}</span><span>${items.length}</span></div>
+        ${items.map(a => `
+          <div class="kanban-card" style="border-left-color:${riskColor(a.risk)}" onclick="openInWorkspace('${a.id}')">
+            <div class="kc-title">${a.id}</div>
+            <div class="kc-sub">${a.name}</div>
+            <div class="kc-sub">${a.variance ? fmt(a.variance) + ' variance' : 'Matched'}</div>
+          </div>`).join('')}
+      </div>`;
+  }).join('');
+}
+
+function renderSignoffTable() {
+  document.getElementById('signoffTable').innerHTML = accounts.map(a => {
+    const idx = a.status === 'Flagged' ? 2 : stepOrder.indexOf(a.status);
+    const total = a.status === 'Flagged' ? 4 : stepOrder.length;
+    let dots = '';
+    for (let i = 0; i < total; i++) {
+      const state = a.status === 'Flagged' && i === 2 ? 'flagged' : i < idx ? 'done' : i === idx ? 'current' : '';
+      dots += `<div class="dot ${state}"></div>`;
+      if (i < total - 1) dots += `<div class="bar ${i < idx ? 'done' : ''}"></div>`;
+    }
+    return `
+      <tr>
+        <td><strong>${a.id} · ${a.name}</strong></td>
+        <td style="font-size:12px">${a.owner}</td>
+        <td style="font-size:12px">${a.reviewer}</td>
+        <td><div class="stepper-mini">${dots}</div></td>
+        <td><span class="badge ${statusBadgeClass(a.status)}">${a.status}</span></td>
+      </tr>`;
+  }).join('');
+}
+
+function renderEscalationTimeline() {
+  document.getElementById('escalationTimeline').innerHTML = wsAudit['2600'].map(e => `
+    <div class="timeline-item">
+      <div class="timeline-dot ${e.color}"></div>
+      <div class="timeline-content"><div class="timeline-time">${e.time}</div>${e.text}</div>
+    </div>`).join('');
+}
+
+// ── Aging ──
+function makeAgingTrend() {
+  makeChart('chartAgingTrend', {
+    type: 'line',
+    data: {
+      labels: ['Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'],
+      datasets: [
+        { label: '0–30 Days',  data: [210, 195, 180, 205, 190, 187], borderColor: '#10b981', fill: false, tension: .4, borderWidth: 2 },
+        { label: '31–60 Days', data: [140, 150, 165, 158, 162, 157], borderColor: '#f59e0b', fill: false, tension: .4, borderWidth: 2 },
+        { label: '61–90 Days', data: [95, 110, 120, 130, 138, 143],  borderColor: '#f97316', fill: false, tension: .4, borderWidth: 2 },
+        { label: '90+ Days',   data: [180, 160, 145, 130, 118, 110], borderColor: '#ef4444', fill: false, tension: .4, borderWidth: 2 },
+      ]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'top', labels: { font: { size: 11 } } } }, scales: { y: { title: { display: true, text: '$K' } } } }
+  });
+}
+
+function makeAgingCategoryChart() {
+  makeChart('chartAgingCategory', {
+    type: 'bar',
+    data: {
+      labels: ['Assets', 'Liabilities'],
+      datasets: [
+        { label: '0–30 Days',  data: [67.5, 119.5], backgroundColor: '#10b981', borderRadius: 4 },
+        { label: '31–60 Days', data: [32, 125],      backgroundColor: '#f59e0b', borderRadius: 4 },
+        { label: '61–90 Days', data: [48, 95],        backgroundColor: '#f97316', borderRadius: 4 },
+        { label: '91–180 Days',data: [110, 0],         backgroundColor: '#ef4444', borderRadius: 4 },
+      ]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'top', labels: { font: { size: 11 } } } }, scales: { x: { stacked: true }, y: { stacked: true, title: { display: true, text: '$K' } } } }
+  });
+}
+
+function renderLongestOpenTable() {
+  const all = [];
+  Object.keys(reconItems).forEach(id => {
+    const acc = accounts.find(a => a.id === id);
+    reconItems[id].forEach(it => all.push({ ...it, account: `${id} · ${acc.name}` }));
+  });
+  all.sort((a, b) => b.age - a.age);
+  document.getElementById('longestOpenTable').innerHTML = all.slice(0, 8).map(it => `
+    <tr>
+      <td><strong>${it.account}</strong></td>
+      <td>${it.desc}</td>
+      <td><span class="badge ${it.age > 60 ? 'badge-red' : it.age > 30 ? 'badge-amber' : 'badge-blue'}">${it.age} days</span></td>
+      <td><span class="badge badge-grey">${it.type}</span></td>
+      <td>${fmt(it.amount)}</td>
+      <td style="font-size:12px">${it.type === 'Unmatched' ? '&#128269; Investigate & confirm counterparty' : it.type === 'Error' ? '&#9999; Correct journal entry' : '&#8987; Monitor — expected to clear'}</td>
+    </tr>`).join('');
+}
+
+// ── AI Chat ──
+const aiResponses = {
+  'variance': `<b>&#9878; Largest Unexplained Variances</b><br><br>
+    1. <b>Suspense / Clearing (3000)</b> — $184,000 (23 open items)<br>
+    2. <b>Intercompany Payable (2600)</b> — $140,000 (3 open items)<br>
+    3. <b>Accrued Liabilities (2100)</b> — $120,000 (3 open items)<br>
+    4. <b>Deferred Revenue (2400)</b> — $55,000 (2 open items)<br>
+    5. <b>Accounts Receivable (1200)</b> — $70,000 (3 open items)<br><br>
+    <b>Total unexplained variance:</b> $597,000 across 6 accounts.`,
+
+  'suspense': `<b>&#128209; Suspense / Clearing Account (3000) — Status</b><br><br>
+    GL Balance: <b>$184,000</b> &bull; Sub-ledger: <b>$0</b><br>
+    Status: <b>Not Started</b> — past due since Jul 3<br>
+    Open Items: <b>23</b>, oldest is <b>95 days</b> (unidentified wire receipt, $110K)<br><br>
+    <b>AI Recommendation:</b> Assign a dedicated clearing sprint — this account has the largest and oldest unmatched balance in the close. Escalate to Controller given past-due status.`,
+
+  'flagged': `<b>&#128681; Flagged Accounts</b><br><br>
+    &bull; <b>Accrued Liabilities (2100)</b> — $120K variance, escalated Jul 24 (missing HR bonus accrual data)<br>
+    &bull; <b>Intercompany Payable (2600)</b> — $140K variance, escalated Jul 23 (awaiting APAC confirmation)<br>
+    &bull; <b>Suspense (3000)</b> — not started, past due since Jul 3<br><br>
+    All three are now visible to the Controller queue and count toward the close's SLA breach risk.`,
+
+  'intercompany': `<b>&#127760; Intercompany Payable (2600) — Variance Explanation</b><br><br>
+    GL Balance: <b>$1,120,000</b> &bull; APAC sub-ledger: <b>$980,000</b> &bull; Variance: <b>$140,000</b><br><br>
+    Drivers:<br>
+    &bull; Intercompany invoice mismatch vs APAC Pte Ltd — $95,000 (61 days)<br>
+    &bull; FX translation difference — $25,000 (30 days)<br>
+    &bull; Unconfirmed intercompany billing — $20,000 (44 days)<br><br>
+    <b>AI Recommendation:</b> Request confirmation statement from APAC Pte Ltd entity controller; the $95K mismatch is the primary blocker to certification.`,
+
+  'aging': `<b>&#9201; Open Reconciling Item Aging</b><br><br>
+    0–30 Days: $187K (9 items)<br>
+    31–60 Days: $157K (4 items)<br>
+    61–90 Days: $143K (2 items)<br>
+    91–180 Days: $110K (1 item)<br>
+    180+ Days: $0<br><br>
+    <b>AI Insight:</b> 43% of open item value is 60+ days old, concentrated in the Suspense and Intercompany accounts — both flagged for escalation.`,
+
+  'status': `<b>&#9989; Close Certification Status</b><br><br>
+    Close Day: <b>4 of 6</b> (hard close Jul 8, 2026)<br>
+    Certified: <b>114 / 186 accounts (61%)</b><br>
+    Pending Review: <b>28</b><br>
+    Escalated to Controller: <b>3</b><br><br>
+    <b>AI Insight:</b> Pace is 6 points behind target trajectory (67% expected by Day 4). Suspense and two flagged liability accounts are the critical path to closing the gap.`,
+};
+
+function getAIResponse(q) {
+  q = q.toLowerCase();
+  if (q.includes('variance') && !q.includes('intercompany')) return aiResponses['variance'];
+  if (q.includes('suspense')) return aiResponses['suspense'];
+  if (q.includes('flag') || q.includes('overdue') || q.includes('escalat')) return aiResponses['flagged'];
+  if (q.includes('intercompany')) return aiResponses['intercompany'];
+  if (q.includes('aging') || q.includes('age') || q.includes('open item')) return aiResponses['aging'];
+  if (q.includes('status') || q.includes('certif') || q.includes('close') || q.includes('progress')) return aiResponses['status'];
+  return `I found relevant information for: <b>"${q}"</b><br><br>
+    Based on current close data:<br>
+    &bull; 186 accounts in scope &bull; 61% certified<br>
+    &bull; $597K unexplained variance across 6 accounts<br>
+    &bull; 3 accounts escalated to Controller<br><br>
+    Try asking about a specific account (e.g. "suspense", "intercompany"), aging, or overall close status for more detail.`;
+}
+
+function sendMessage() {
+  const input = document.getElementById('chatInput');
+  const q = input.value.trim();
+  if (!q) return;
+  appendMsg('user', q);
+  input.value = '';
+  showTyping();
+  setTimeout(() => {
+    removeTyping();
+    appendMsg('ai', getAIResponse(q));
+  }, 900 + Math.random() * 600);
+}
+
+function sendQuickPrompt(el) {
+  document.getElementById('chatInput').value = el.textContent;
+  sendMessage();
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
+
+function appendMsg(role, html) {
+  const box = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+  div.innerHTML = `
+    <div class="msg-avatar">${role === 'ai' ? '&#129302;' : '&#128100;'}</div>
+    <div class="msg-bubble">${html}</div>`;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+}
+
+function showTyping() {
+  const box = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = 'msg ai';
+  div.id = 'typing-indicator';
+  div.innerHTML = `<div class="msg-avatar">&#129302;</div>
+    <div class="msg-bubble"><div class="typing"><span></span><span></span><span></span></div></div>`;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+}
+
+function removeTyping() {
+  const t = document.getElementById('typing-indicator');
+  if (t) t.remove();
+}
+
+// ── Charts ──
+const charts = {};
+
+function makeChart(id, config) {
+  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+  const el = document.getElementById(id);
+  if (!el) return;
+  charts[id] = new Chart(el.getContext('2d'), config);
+}
+
+// ── Init ──
+initPageCharts('dashboard');
+</script>
+</body>
+</html>
